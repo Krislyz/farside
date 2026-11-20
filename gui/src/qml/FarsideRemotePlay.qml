@@ -413,7 +413,7 @@ Item {
 
             FText {
                 Layout.fillWidth: true
-                text: qsTr("On the other PC, open Farside, go to Remote Play, then Pair. Paste a screenshot of this QR code there, or enter the code. It works once.")
+                text: qsTr("On the other PC, open Farside Client and go to Pair. Paste a screenshot of this QR code there, or enter the code. It works once.")
                 color: shell.muted
                 wrapMode: Text.WordWrap
             }
