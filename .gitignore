@@ -39,3 +39,9 @@ chiaki.conf
 .cache/
 *.vscode
 site/
+
+# Farside: dependencies fetched by the Windows build, collected programs, generated files
+/SDL3-*
+/hidapi
+/chiaki-ng-Win
+gui/farsideclient.rc

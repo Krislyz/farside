@@ -66,7 +66,7 @@ DialogView {
             C.TextField {
                 id: name
                 Layout.preferredWidth: 400
-                text: Chiaki.settings.currentProfile ? qsTr("chiaki-ng ") + Chiaki.settings.currentProfile: qsTr("chiaki-ng")
+                text: Chiaki.settings.currentProfile ? qsTr("Farside ") + Chiaki.settings.currentProfile: qsTr("Farside")
                 firstInFocusChain: true
             }
 
@@ -106,7 +106,7 @@ DialogView {
         }
 
         Item {
-            Dialog {
+            FDialog {
                 id: logDialog
                 parent: Overlay.overlay
                 x: Math.round((root.width - width) / 2)
@@ -127,7 +127,7 @@ DialogView {
                     contentWidth: logArea.contentWidth
                     contentHeight: logArea.contentHeight
                     flickableDirection: Flickable.AutoFlickIfNeeded
-                    ScrollBar.vertical: ScrollBar {
+                    ScrollBar.vertical: FScroll {
                         id: logScrollbar
                         policy: ScrollBar.AlwaysOn
                         visible: logFlick.contentHeight > logFlick.implicitHeight
@@ -159,7 +159,7 @@ DialogView {
             }
         }
 
-        Dialog {
+        FDialog {
             id: restartDialog
             parent: Overlay.overlay
             x: Math.round((root.width - width) / 2)

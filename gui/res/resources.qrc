@@ -5,6 +5,7 @@
     <file>discover-24px.svg</file>
     <file>discover-off-24px.svg</file>
     <file>chiaking.svg</file>
+    <file>farside.svg</file>
     <file>chiaking-logo.svg</file>
     <file>chiaking-logo-white.svg</file>
     <file>chiaki.svg</file>
@@ -29,5 +30,10 @@
     <file alias="FSR.glsl">shaders/FSR.glsl</file>
     <file alias="FSRCNNX_x2_8-0-4-1.glsl">shaders/FSRCNNX_x2_8-0-4-1.glsl</file>
     <file alias="FSRCNNX_x2_16-0-4-1.glsl">shaders/FSRCNNX_x2_16-0-4-1.glsl</file>
+  </qresource>
+  <qresource prefix="/fonts">
+    <file alias="Inter-Regular.ttf">fonts/Inter-Regular.ttf</file>
+    <file alias="Inter-SemiBold.ttf">fonts/Inter-SemiBold.ttf</file>
+    <file alias="SpaceGrotesk-SemiBold.ttf">fonts/SpaceGrotesk-SemiBold.ttf</file>
   </qresource>
 </RCC>

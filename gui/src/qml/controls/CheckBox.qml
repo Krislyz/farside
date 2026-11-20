@@ -2,7 +2,11 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 
+import ".."
+
 CheckBox {
+    // Farside look (see FTick.qml).
+    indicator: FTick { }
     property bool firstInFocusChain: false
     property bool lastInFocusChain: false
     property bool sendOutput: false

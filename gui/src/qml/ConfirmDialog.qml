@@ -1,9 +1,10 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
-import QtQuick.Controls.Material
-import "controls" as C
 
+import org.streetpea.chiaking
+
+// Farside look. It opens in the window's own layer, which is not scaled with the pages, so it is scaled here.
 Dialog {
     id: dialog
     property alias text: label.text
@@ -14,8 +15,38 @@ Dialog {
     parent: Overlay.overlay
     x: Math.round((root.width - width) / 2)
     y: Math.round((root.height - height) / 2)
+    width: 520
+    padding: 24
+    topPadding: 8
     modal: true
-    Material.roundedScale: Material.MediumScale
+    scale: Math.max(0.75, Math.min(1.2, root.width / 1120, root.height / 700))
+    // The page behind is dimmed by this oversized sheet: the style's own dimmer (Overlay.modal) did not show here.
+    dim: false
+    // A click beside the question is not an answer to it.
+    closePolicy: Popup.CloseOnEscape
+    background: Item {
+        Rectangle {
+            x: -4000
+            y: -4000
+            width: 8000 + parent.width
+            height: 8000 + parent.height
+            color: "#cc000000"
+        }
+        Rectangle {
+            anchors.fill: parent
+            radius: 14
+            color: "#14141d"
+            border.color: "#262633"
+        }
+    }
+    header: FText {
+        text: dialog.title
+        padding: 24
+        bottomPadding: 0
+        font.pixelSize: 18
+        font.weight: Font.DemiBold
+        wrapMode: Text.WordWrap
+    }
     onOpened: label.forceActiveFocus(Qt.TabFocusReason)
     onAccepted: {
         newDialogOpen = true;
@@ -39,65 +70,33 @@ Dialog {
         label.focus = false;
     }
 
-    Component.onCompleted: {
-        header.horizontalAlignment = Text.AlignHCenter;
-        // Qt 6.6: Workaround dialog background becoming immediately transparent during close animation
-        header.background = null;
-    }
-
     ColumnLayout {
+        anchors.fill: parent
         spacing: 20
 
-        Label {
+        FText {
             id: label
+            Layout.fillWidth: true
+            color: "#a3a3b5"
+            wrapMode: Text.WordWrap
             Keys.onEscapePressed: dialog.reject()
             Keys.onReturnPressed: dialog.accept()
         }
 
         RowLayout {
-            Layout.alignment: Qt.AlignCenter
-            spacing: 20
+            Layout.alignment: Qt.AlignRight
+            spacing: 12
 
-            Button {
-                text: qsTr("Yes")
-                Material.background: Material.accent
-                flat: true
-                leftPadding: 50
-                onClicked: dialog.accept()
-                Material.roundedScale: Material.SmallScale
-
-                Image {
-                    anchors {
-                        left: parent.left
-                        verticalCenter: parent.verticalCenter
-                        leftMargin: 12
-                    }
-                    width: 28
-                    height: 28
-                    sourceSize: Qt.size(width, height)
-                    source: root.controllerButton("cross")
-                }
-            }
-
-            Button {
-                Material.background: Material.accent
+            FButton {
                 text: qsTr("No")
-                flat: true
-                leftPadding: 50
+                focusPolicy: Qt.NoFocus
                 onClicked: dialog.reject()
-                Material.roundedScale: Material.SmallScale
-
-                Image {
-                    anchors {
-                        left: parent.left
-                        verticalCenter: parent.verticalCenter
-                        leftMargin: 12
-                    }
-                    width: 28
-                    height: 28
-                    sourceSize: Qt.size(width, height)
-                    source: root.controllerButton("moon")
-                }
+            }
+            FButton {
+                primary: true
+                text: qsTr("Yes")
+                focusPolicy: Qt.NoFocus
+                onClicked: dialog.accept()
             }
         }
     }

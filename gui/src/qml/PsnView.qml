@@ -11,7 +11,7 @@ Rectangle {
     property bool textVisible: true
     property bool registOnly: false
     property list<Item> restoreFocusItems
-    color: "black"
+    color: "#0b0b10"
 
     StackView.onActivated: infoLabel.visible = false
 
@@ -55,6 +55,11 @@ Rectangle {
     Label {
         id: infoLabel
         anchors.centerIn: parent
+        width: Math.min(implicitWidth, parent.width - 48)
+        horizontalAlignment: Text.AlignHCenter
+        wrapMode: Text.WordWrap
+        color: "#f3f3f6"
+        font.family: "Inter"
         opacity: textVisible ? 1.0: 0.0
         visible: opacity
         text: qsTr("Establishing connection with console over PSN ...")
@@ -83,6 +88,8 @@ Rectangle {
                 horizontalCenter: spinner.horizontalCenter
                 topMargin: 30
             }
+            color: "#a3a3b5"
+            font.family: "Inter"
             opacity: (textVisible && !cancelling) ? 1.0: 0.0
             visible: opacity
             text: {
@@ -97,6 +104,8 @@ Rectangle {
                 bottom: spinner.top
                 horizontalCenter: spinner.horizontalCenter
             }
+            color: "#f3f3f6"
+            font.family: "Inter"
             font.pixelSize: 24
             visible: text
             onVisibleChanged: {
@@ -117,6 +126,8 @@ Rectangle {
                 horizontalCenter: errorTitleLabel.horizontalCenter
                 topMargin: 10
             }
+            color: "#a3a3b5"
+            font.family: "Inter"
         }
     }
 
@@ -137,7 +148,7 @@ Rectangle {
         onTriggered: root.showMainView()
     }
 
-    Dialog {
+    FDialog {
         id: sessionPinDialog
         parent: Overlay.overlay
         x: Math.round((root.width - width) / 2)
@@ -161,7 +172,7 @@ Rectangle {
         onRejected: Chiaki.stopSession(false)
         Material.roundedScale: Material.MediumScale
 
-        TextField {
+        FField {
             id: pinField
             echoMode: Chiaki.settings.streamerMode ? TextInput.Password : TextInput.Normal
             implicitWidth: 200
@@ -181,7 +192,7 @@ Rectangle {
             switch(Chiaki.connectState)
             {
                 case Chiaki.PsnConnectState.LinkingConsole:
-                    infoLabel.text = registOnly ? qsTr("Registering PlayStation console with chiaki-ng ...") : qsTr("Linking chiaki-ng with PlayStation console ...")
+                    infoLabel.text = registOnly ? qsTr("Registering PlayStation console with Farside ...") : qsTr("Linking Farside with PlayStation console ...")
                     view.allowClose = false
                     break
                 case Chiaki.PsnConnectState.RegisteringConsole:

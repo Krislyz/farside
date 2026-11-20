@@ -12,7 +12,13 @@ Item {
     readonly property bool preferSeparateStreamSettingsWindows: Chiaki.window.runtimeRendererBackend === 1 && Chiaki.session
     property bool useSeparateStreamSettingsWindows: false
     Material.theme: Material.Dark
-    Material.accent: "#00a7ff"
+    Material.accent: "#d4267e"
+
+    // The window is drawn off screen, so Qt never gives its content a size, and the layer the popups open in
+    // (Overlay.overlay) has none either. Without a size that layer cannot keep clicks away from the page under
+    // a modal popup, nor close a popup on a click beside it. It gets the size of the window here.
+    Binding { target: root.Overlay.overlay; property: "width"; value: root.width }
+    Binding { target: root.Overlay.overlay; property: "height"; value: root.height }
 
     function controllerButton(name) {
         let type = "deck";
@@ -169,7 +175,7 @@ Item {
 
     function showRendererFallbackDialog(reason) {
         showInfoDialog(qsTr("Renderer Fallback"),
-                       qsTr("Vulkan renderer is unavailable and chiaki-ng switched to OpenGL.\n\nReason: %1").arg(reason));
+                       qsTr("Vulkan renderer is unavailable and Farside switched to OpenGL.\n\nReason: %1").arg(reason));
     }
 
     function showRemindDialog(title, text, remotePlay, callback) {
@@ -252,6 +258,8 @@ Item {
     Pane {
         anchors.fill: parent
         visible: !Chiaki.window.hasVideo && !Chiaki.window.keepVideo
+        // The colour of the Farside pages, so that no other colour shows while one screen fades into the next.
+        Material.background: "#0b0b10"
     }
 
     StackView {
@@ -421,11 +429,15 @@ Item {
             horizontalCenter: parent.horizontalCenter
             bottomMargin: 30
         }
-        color: Material.accent
-        width: errorLayout.width + 40
-        height: errorLayout.height + 20
-        radius: 8
-        opacity: errorHideTimer.running ? 0.8 : 0.0
+        // Farside look: a card with a red edge, scaled like the pages (see ConfirmDialog.qml).
+        color: "#14141d"
+        border.color: "#ec6078"
+        width: errorLayout.width + 48
+        height: errorLayout.height + 28
+        radius: 12
+        scale: Math.max(0.75, Math.min(1.2, root.width / 1120, root.height / 700))
+        transformOrigin: Item.Bottom
+        opacity: errorHideTimer.running ? 1.0 : 0.0
 
         Behavior on opacity { NumberAnimation { duration: 500 } }
 
@@ -433,18 +445,18 @@ Item {
             id: errorLayout
             anchors.centerIn: parent
 
-            Label {
+            FText {
                 id: errorTitleLabel
                 Layout.alignment: Qt.AlignCenter
-                font.bold: true
-                font.pixelSize: 24
+                font.weight: Font.DemiBold
+                font.pixelSize: 16
             }
 
-            Label {
+            FText {
                 id: errorTextLabel
                 Layout.alignment: Qt.AlignCenter
                 horizontalAlignment: Text.AlignHCenter
-                font.pixelSize: 20
+                color: "#a3a3b5"
             }
         }
 
@@ -461,8 +473,38 @@ Item {
         parent: Overlay.overlay
         x: Math.round((root.width - width) / 2)
         y: Math.round((root.height - height) / 2)
+        width: 520
+        padding: 24
+        topPadding: 8
         modal: true
-        Material.roundedScale: Material.MediumScale
+        // Farside look; scaled like the pages (see ConfirmDialog.qml).
+        scale: Math.max(0.75, Math.min(1.2, root.width / 1120, root.height / 700))
+        // The page behind is dimmed by this oversized sheet: the style's own dimmer (Overlay.modal) did not show here.
+        dim: false
+        closePolicy: Popup.CloseOnEscape
+        background: Item {
+            Rectangle {
+                x: -4000
+                y: -4000
+                width: 8000 + parent.width
+                height: 8000 + parent.height
+                color: "#cc000000"
+            }
+            Rectangle {
+                anchors.fill: parent
+                radius: 14
+                color: "#14141d"
+                border.color: "#262633"
+            }
+        }
+        header: FText {
+            text: infoDialog.title
+            padding: 24
+            bottomPadding: 0
+            font.pixelSize: 18
+            font.weight: Font.DemiBold
+            wrapMode: Text.WordWrap
+        }
         onOpened: infoDialogLabel.forceActiveFocus(Qt.TabFocusReason)
         onClosed: {
             if (restoreFocusItem)
@@ -470,43 +512,25 @@ Item {
             infoDialogLabel.focus = false;
         }
 
-        Component.onCompleted: {
-            header.horizontalAlignment = Text.AlignHCenter;
-            header.background = null;
-        }
-
         ColumnLayout {
+            anchors.fill: parent
             spacing: 20
 
-            Label {
+            FText {
                 id: infoDialogLabel
+                Layout.fillWidth: true
+                color: "#a3a3b5"
+                wrapMode: Text.WordWrap
                 Keys.onEscapePressed: infoDialog.close()
                 Keys.onReturnPressed: infoDialog.close()
             }
 
-            RowLayout {
-                Layout.alignment: Qt.AlignCenter
-
-                Button {
-                    text: qsTr("OK")
-                    Material.background: Material.accent
-                    flat: true
-                    leftPadding: 50
-                    onClicked: infoDialog.close()
-                    Material.roundedScale: Material.SmallScale
-
-                    Image {
-                        anchors {
-                            left: parent.left
-                            verticalCenter: parent.verticalCenter
-                            leftMargin: 12
-                        }
-                        width: 28
-                        height: 28
-                        sourceSize: Qt.size(width, height)
-                        source: root.controllerButton("cross")
-                    }
-                }
+            FButton {
+                Layout.alignment: Qt.AlignRight
+                primary: true
+                text: qsTr("OK")
+                focusPolicy: Qt.NoFocus
+                onClicked: infoDialog.close()
             }
         }
     }
@@ -564,7 +588,7 @@ Item {
 
     Component {
         id: mainViewComponent
-        MainView { }
+        FarsideShell { }
     }
 
     Component {

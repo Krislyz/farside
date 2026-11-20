@@ -269,7 +269,10 @@ DialogView {
                         web.anchors.fill = webView;
                     } catch (error) {
                         console.error('Create webengine view failed with error:' + error);
-                        extBrowserButton.clicked();
+                        // Only the login needs a browser. The lookup by user name has its own form, and
+                        // falling back here as well drew the two forms over each other.
+                        if (dialog.login)
+                            extBrowserButton.clicked();
                     }
                 }
             }
@@ -302,7 +305,7 @@ DialogView {
                 visible: psnurl
             }
 
-            TextField {
+            FField {
                 id: openurl
                 echoMode: Chiaki.settings.streamerMode ? TextInput.Password : TextInput.Normal
                 text: psnurl
@@ -327,7 +330,7 @@ DialogView {
                 text: qsTr("Redirect URL from Web Browser")
             }
 
-            TextField {
+            FField {
                 id: url
                 echoMode: Chiaki.settings.streamerMode ? TextInput.Password : TextInput.Normal
                 Layout.preferredWidth: 400

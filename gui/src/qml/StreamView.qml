@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Window
+import QtCore
 
 import org.streetpea.chiaking
 
@@ -68,6 +69,7 @@ Item {
 
     function updateOverlayInteractionActive() {
         Chiaki.window.setOverlayInteractionActive(
+            Chiaki.window.barHot ||
             menuController.open ||
             menuController.closing ||
             sessionStopDialogActive ||
@@ -173,6 +175,7 @@ Item {
                     horizontalCenter: spinner.horizontalCenter
                     topMargin: 30
                 }
+                horizontalAlignment: Text.AlignHCenter
                 text: {
                     if(Chiaki.settings.dpadTouchEnabled)
                     {
@@ -271,8 +274,8 @@ Item {
             Layout.alignment: Qt.AlignCenter
             Layout.preferredHeight: 60
             text: qsTr("Go to Home Screen")
-            Material.background: activeFocus ? parent.Material.accent : undefined
-            Material.roundedScale: Material.SmallScale
+            // Farside look.
+            background: FBack { }
             onClicked: Chiaki.sessionGoHome()
             Keys.onReturnPressed: clicked()
             Keys.onEscapePressed: clicked()
@@ -300,6 +303,238 @@ Item {
             id: networkIndicatorTimer
             running: Chiaki.session?.averagePacketLoss > (Chiaki.settings.wifiDroppedNotif * 0.01)
             interval: 400
+        }
+    }
+
+    // ---- Farside: floating bar, modelled on capstream ----
+    // Collapsed it is a small tab with an arrow, shown only while the mouse is at the top edge.
+    // Opened it holds the stream settings and Fullscreen. F11 toggles fullscreen at any time.
+    // Resolution, frame rate and bitrate are fixed when a session starts (PS5 Remote Play works that way),
+    // so a change here is stored and takes effect at the next connect.
+    Connections {
+        target: Chiaki.window
+        function onBarHotChanged() {
+            view.updateOverlayInteractionActive();
+        }
+        function onBarOpenChanged() { Chiaki.window.requestOverlayUpdate() }
+    }
+
+    Item {
+        id: farsideBar
+        readonly property bool open: Chiaki.window.barOpen
+        readonly property color accent: "#d4267e"
+        readonly property var resolutionNames: ["640x360 (360p)", "960x540 (540p)", "1280x720 (720p)", "1920x1080 (1080p)"]
+        // What chiaki-ng itself uses when the bitrate is left on automatic, in Mbps per resolution.
+        readonly property var autoBitrate: [2, 6, 10, 15]
+        // ponytail: three fixed presets as [resolution, fps, kbps]. Tune these numbers after real use;
+        // the single controls beside them allow any other combination.
+        readonly property var presets: [[3, 60, 8000], [4, 60, 15000], [4, 60, 30000]]
+        readonly property var presetNames: [qsTr("Smooth"), qsTr("Balanced"), qsTr("Quality")]
+        readonly property int currentPreset: {
+            for (var i = 0; i < presets.length; i++)
+                if (Chiaki.settings.resolutionLocalPS5 === presets[i][0] && Chiaki.settings.fpsLocalPS5 === presets[i][1] && Chiaki.settings.bitrateLocalPS5 === presets[i][2])
+                    return i;
+            return -1;
+        }
+        property bool changed: false
+
+        // Farside options, kept between sessions (stored with chiaki-ng's own settings, under "farside").
+        Settings {
+            id: farsideOptions
+            category: "farside"
+            // HUD options: off unless ticked on the Settings tab of the Farside app, which writes this value.
+            property bool hudResponse: false
+        }
+
+        // The local and the remote profile are kept the same: this window is always used on the PS5's own network.
+        function store(resolution, fps, kbps) {
+            Chiaki.settings.resolutionLocalPS5 = resolution; Chiaki.settings.resolutionRemotePS5 = resolution;
+            Chiaki.settings.fpsLocalPS5 = fps; Chiaki.settings.fpsRemotePS5 = fps;
+            Chiaki.settings.bitrateLocalPS5 = kbps; Chiaki.settings.bitrateRemotePS5 = kbps;
+            changed = true;
+            lowestLatency();
+            Chiaki.window.requestOverlayUpdate();
+        }
+
+        // Whatever is picked, response time comes first: vertical sync stays off. How the picture is
+        // enlarged (the render preset) is the user's choice under Settings, Picture.
+        function lowestLatency() {
+            Chiaki.settings.vSyncEnabled = false;
+        }
+        Component.onCompleted: lowestLatency()
+
+        // What the chosen bitrate costs in response time. Bigger frames take longer to send and to decode.
+        // ponytail: fixed steps by Mbps; replace with a measured delay if chiaki-ng ever exposes one.
+        readonly property string latencyHint: {
+            var mbps = Chiaki.settings.bitrateLocalPS5 > 0 ? Chiaki.settings.bitrateLocalPS5 / 1000 : autoBitrate[Chiaki.settings.resolutionLocalPS5 - 1];
+            return mbps <= 10 ? qsTr("fastest") : mbps <= 20 ? qsTr("fast") : mbps <= 50 ? qsTr("slower") : qsTr("slowest");
+        }
+
+        // Shown while the mouse is at the top edge. It fades and slides in and out, and grows and
+        // shrinks between tab and bar; every step is short (160 to 220 ms) so it never feels slow.
+        readonly property bool shown: Chiaki.window.barHot && Chiaki.window.hasVideo && !menuController.open && !sessionLoading && !sessionError
+        opacity: shown ? 1 : 0
+        visible: opacity > 0
+        anchors.top: parent.top
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.topMargin: (open ? 12 : 0) - (shown ? 0 : 14)
+        width: open ? barRow.implicitWidth + 28 : 72
+        height: open ? 56 : 24
+        z: 10
+        clip: true
+
+        Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+        Behavior on anchors.topMargin { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+        Behavior on width { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+        Behavior on height { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+
+        // While something moves, the window redraws the bar on every picture; a still bar costs nothing.
+        onOpacityChanged: Chiaki.window.requestOverlayUpdate()
+        onWidthChanged: Chiaki.window.requestOverlayUpdate()
+        onYChanged: Chiaki.window.requestOverlayUpdate()
+
+        Rectangle {
+            anchors.fill: parent
+            radius: farsideBar.open ? 16 : 8
+            color: "#e60b0b10"
+            border.color: tabArea.containsMouse && !farsideBar.open ? farsideBar.accent : "#33334a"
+            border.width: 1
+
+            Behavior on radius { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+            Behavior on border.color { ColorAnimation { duration: 120 } }
+        }
+
+        MouseArea {
+            id: tabArea
+            anchors.fill: parent
+            enabled: !farsideBar.open
+            hoverEnabled: true
+            onClicked: Chiaki.window.barOpen = true
+        }
+
+        Label {
+            opacity: farsideBar.open ? 0 : 1
+            visible: opacity > 0
+            Behavior on opacity { NumberAnimation { duration: 120 } }
+            anchors.centerIn: parent
+            text: "▾"
+            color: "#d6d6e0"
+            font.pixelSize: 16
+        }
+
+        RowLayout {
+            id: barRow
+            // The controls come in a moment after the bar has started to grow, and leave at once.
+            opacity: farsideBar.open ? 1 : 0
+            visible: opacity > 0
+            Behavior on opacity {
+                SequentialAnimation {
+                    PauseAnimation { duration: farsideBar.open ? 90 : 0 }
+                    NumberAnimation { duration: farsideBar.open ? 160 : 60; easing.type: Easing.OutCubic }
+                }
+            }
+            anchors.centerIn: parent
+            spacing: 8
+
+            Label {
+                text: "FARSIDE"
+                color: farsideBar.accent
+                font.pixelSize: 15
+                font.bold: true
+                font.letterSpacing: 2
+                Layout.rightMargin: 6
+            }
+
+            // Pickers, as in Parsec's settings. While a list is open the window takes the mouse away from the
+            // PS5 (grabInput); otherwise a click on the list, which hangs below the bar, would go to the console.
+            C.ComboBox {
+                id: priorityPicker
+                property bool listOpen: popup.visible
+                onListOpenChanged: { if (listOpen) view.grabInput(null); else view.releaseInput(); Chiaki.window.requestOverlayUpdate() }
+                model: [farsideBar.presetNames[0], farsideBar.presetNames[1], farsideBar.presetNames[2], qsTr("Custom")]
+                currentIndex: farsideBar.currentPreset >= 0 ? farsideBar.currentPreset : 3
+                implicitWidth: 130
+                implicitHeight: 40
+                font.pixelSize: 13
+                focusPolicy: Qt.NoFocus
+                Material.accent: farsideBar.accent
+                onActivated: (index) => { if (index < 3) farsideBar.store(farsideBar.presets[index][0], farsideBar.presets[index][1], farsideBar.presets[index][2]) }
+            }
+
+            C.ComboBox {
+                property bool listOpen: popup.visible
+                onListOpenChanged: { if (listOpen) view.grabInput(null); else view.releaseInput(); Chiaki.window.requestOverlayUpdate() }
+                model: farsideBar.resolutionNames
+                currentIndex: Chiaki.settings.resolutionLocalPS5 - 1
+                implicitWidth: 200
+                implicitHeight: 40
+                font.pixelSize: 13
+                focusPolicy: Qt.NoFocus
+                Material.accent: farsideBar.accent
+                // A new resolution puts the bitrate back on automatic, as chiaki-ng's Settings does.
+                onActivated: (index) => farsideBar.store(index + 1, Chiaki.settings.fpsLocalPS5, 0)
+            }
+
+            C.ComboBox {
+                property bool listOpen: popup.visible
+                onListOpenChanged: { if (listOpen) view.grabInput(null); else view.releaseInput(); Chiaki.window.requestOverlayUpdate() }
+                model: ["30 fps", "60 fps"]
+                currentIndex: Chiaki.settings.fpsLocalPS5 / 30 - 1
+                implicitWidth: 100
+                implicitHeight: 40
+                font.pixelSize: 13
+                focusPolicy: Qt.NoFocus
+                Material.accent: farsideBar.accent
+                onActivated: (index) => farsideBar.store(Chiaki.settings.resolutionLocalPS5, (index + 1) * 30, Chiaki.settings.bitrateLocalPS5)
+            }
+
+            C.ComboBox {
+                // 0 = automatic: chiaki-ng picks the bitrate that belongs to the resolution.
+                // 100 Mbps is the most chiaki-ng lets you ask the PS5 for.
+                readonly property var rates: [0, 5000, 8000, 10000, 15000, 20000, 30000, 50000, 75000, 100000]
+                property bool listOpen: popup.visible
+                onListOpenChanged: { if (listOpen) view.grabInput(null); else view.releaseInput(); Chiaki.window.requestOverlayUpdate() }
+                model: rates.map((r) => r === 0 ? qsTr("Auto (%1 Mbps)").arg(farsideBar.autoBitrate[Chiaki.settings.resolutionLocalPS5 - 1]) : (r / 1000) + " Mbps")
+                currentIndex: rates.indexOf(Chiaki.settings.bitrateLocalPS5)
+                // A bitrate set in Settings that is not in the list still shows as what it is.
+                displayText: currentIndex >= 0 ? currentText : (Chiaki.settings.bitrateLocalPS5 / 1000) + " Mbps"
+                implicitWidth: 160
+                implicitHeight: 40
+                font.pixelSize: 13
+                focusPolicy: Qt.NoFocus
+                Material.accent: farsideBar.accent
+                onActivated: (index) => farsideBar.store(Chiaki.settings.resolutionLocalPS5, Chiaki.settings.fpsLocalPS5, rates[index])
+            }
+            Label {
+                visible: farsideOptions.hudResponse
+                text: qsTr("response: %1").arg(farsideBar.latencyHint)
+                color: farsideBar.latencyHint === qsTr("fastest") || farsideBar.latencyHint === qsTr("fast") ? "#3ddc97" : "#ff8a3d"
+                font.pixelSize: 12
+            }
+
+            Label {
+                visible: farsideBar.changed
+                text: qsTr("applies on reconnect")
+                color: "#ff8a3d"
+                font.pixelSize: 12
+            }
+
+            FButton {
+                primary: true
+                text: qsTr("Fullscreen")
+                font.pixelSize: 13
+                implicitHeight: 36
+                focusPolicy: Qt.NoFocus
+                onClicked: Chiaki.window.toggleFullscreen()
+            }
+
+            FButton {
+                text: "▴"
+                implicitHeight: 36
+                implicitWidth: 40
+                focusPolicy: Qt.NoFocus
+                onClicked: Chiaki.window.barOpen = false
+            }
         }
     }
 
@@ -351,7 +586,7 @@ Item {
                         }
                         text: parent.visible ? Chiaki.window.queueDepthAverage.toFixed(1) : ""
                         font.bold: true
-                        color: "#90caf9"
+                        color: "#f3f3f6"
                         font.pixelSize: 18
                     }
                 }
@@ -373,7 +608,7 @@ Item {
                         }
                         text: parent.visible ? qsTr("%1 ms").arg((Chiaki.window.pendingFrameAge * 1000.0).toFixed(0)) : ""
                         font.bold: true
-                        color: "#90caf9"
+                        color: "#f3f3f6"
                         font.pixelSize: 18
                     }
                 }
@@ -396,7 +631,7 @@ Item {
                         }
                         text: parent.visible ? "%1<font size=\"1\">%</font>".arg((((Chiaki.session && isFinite(Chiaki.session.averagePacketLoss)) ? Chiaki.session.averagePacketLoss : 0) * 100).toFixed(1)) : ""
                         font.bold: true
-                        color: "#ef9a9a"
+                        color: "#ec6078"
                         font.pixelSize: 18
                     }
                 }
@@ -418,7 +653,7 @@ Item {
                             rightMargin: 5
                         }
                         text: parent.visible ? Chiaki.window.droppedFrames : ""
-                        color: "#ef9a9a"
+                        color: "#ec6078"
                         font.bold: true
                         font.pixelSize: 18
                     }
@@ -440,7 +675,7 @@ Item {
                             rightMargin: 5
                         }
                         text: parent.visible ? ((Chiaki.session && isFinite(Chiaki.session.framesLost)) ? Chiaki.session.framesLost : 0) : ""
-                        color: "#ef9a9a"
+                        color: "#ec6078"
                         font.bold: true
                         font.pixelSize: 18
                     }
@@ -464,8 +699,9 @@ Item {
                     let ctx = getContext("2d");
                     let gradient = ctx.createLinearGradient(0, 0, 0, height);
                     gradient.addColorStop(0.0, Qt.rgba(0.0, 0.0, 0.0, 0.0));
-                    gradient.addColorStop(0.7, Qt.rgba(0.5, 0.5, 0.5, 0.7));
-                    gradient.addColorStop(1.0, Qt.rgba(0.5, 0.5, 0.5, 0.9));
+                    // Farside look: the dark of the pages (#0b0b10), not grey.
+                    gradient.addColorStop(0.7, Qt.rgba(0.043, 0.043, 0.063, 0.85));
+                    gradient.addColorStop(1.0, Qt.rgba(0.043, 0.043, 0.063, 0.95));
                     ctx.fillStyle = gradient;
                     ctx.fillRect(0, 0, width, height);
                 }
@@ -481,6 +717,8 @@ Item {
                 spacing: 0
 
                 ToolButton {
+                    // Farside look.
+                    background: FBack { flat: true }
                     id: closeButton
                     Layout.rightMargin: 20
                     text: "×"
@@ -503,7 +741,7 @@ Item {
                 Layout.rightMargin: 10
             }
 
-            Slider {
+            FSlider {
                 id: volumeSlider
                 Layout.rightMargin: 20
                 orientation: Qt.Vertical
@@ -535,6 +773,8 @@ Item {
             }
 
             ToolButton {
+                // Farside look.
+                background: FBack { flat: true }
                 id: muteButton
                 Layout.rightMargin: 20
                 text: qsTr("Mic")
@@ -550,6 +790,8 @@ Item {
             }
 
             ToolButton {
+                // Farside look.
+                background: FBack { flat: true }
                 id: zoomButton
                 text: qsTr("Zoom")
                 padding: 10
@@ -567,7 +809,7 @@ Item {
                 Keys.onEscapePressed: menuController.close()
             }
 
-            Slider {
+            FSlider {
                 id: zoomFactor
                 orientation: Qt.Vertical
                 from: -1
@@ -604,6 +846,8 @@ Item {
             }
 
             ToolButton {
+                // Farside look.
+                background: FBack { flat: true }
                 id: stretchButton
                 Layout.rightMargin: 50
                 text: qsTr("Stretch")
@@ -623,6 +867,8 @@ Item {
             }
 
             ToolButton {
+                // Farside look.
+                background: FBack { flat: true }
                 id: defaultButton
                 text: qsTr("Default")
                 padding: 10
@@ -644,6 +890,8 @@ Item {
             }
 
             ToolButton {
+                // Farside look.
+                background: FBack { flat: true }
                 id: highQualityButton
                 text: qsTr("High Quality")
                 padding: 10
@@ -660,6 +908,8 @@ Item {
             }
 
             ToolButton {
+                // Farside look.
+                background: FBack { flat: true }
                 id: highQualitySpatialButton
                 text: qsTr("HQ + Spatial")
                 padding: 10
@@ -676,6 +926,8 @@ Item {
             }
 
             ToolButton {
+                // Farside look.
+                background: FBack { flat: true }
                 id: highQualityAdvancedSpatialButton
                 text: qsTr("HQ + Adv Spatial")
                 padding: 10
@@ -697,6 +949,8 @@ Item {
             }
 
             ToolButton {
+                // Farside look.
+                background: FBack { flat: true }
                 id: customButton
                 text: qsTr("Custom")
                 Layout.rightMargin: 40
@@ -714,6 +968,8 @@ Item {
             }
 
             ToolButton {
+                // Farside look.
+                background: FBack { flat: true }
                 id: displaySettingsButton
                 text: qsTr("Display")
                 padding: 10
@@ -735,6 +991,8 @@ Item {
             }
 
             ToolButton {
+                // Farside look.
+                background: FBack { flat: true }
                 id: placeboSettingsButton
                 text: qsTr("Placebo")
                 icon.source: "qrc:/icons/settings-20px.svg";
@@ -812,7 +1070,7 @@ Item {
                                 rightMargin: 5
                             }
                             text: visible ? "%1<font size=\"1\">%</font>".arg((((Chiaki.session && isFinite(Chiaki.session.averagePacketLoss)) ? Chiaki.session.averagePacketLoss : 0) * 100).toFixed(1)) : ""
-                            color: "#ef9a9a" // Material.Red
+                            color: "#ec6078" // Material.Red
                             font.bold: true
                             font.pixelSize: 18
                         }
@@ -835,7 +1093,7 @@ Item {
                                 rightMargin: 5
                             }
                             text: visible ? Chiaki.window.droppedFrames : ""
-                            color: "#ef9a9a" // Material.Red
+                            color: "#ec6078" // Material.Red
                             font.bold: true
                             font.pixelSize: 18
                         }
@@ -917,6 +1175,15 @@ Item {
         y: Math.round((root.height - height) / 2)
         modal: true
         padding: 30
+        // Farside look (see FDialog.qml): a dark card, and the picture behind dimmed dark, not with the style's light veil.
+        background: Rectangle {
+            radius: 14
+            color: "#14141d"
+            border.color: "#262633"
+        }
+        Overlay.modal: Rectangle {
+            color: "#99000000"
+        }
         onAboutToShow: {
             closeAction = 0;
             sessionStopDialogActive = true;
@@ -934,15 +1201,16 @@ Item {
             Label {
                 Layout.alignment: Qt.AlignCenter
                 text: qsTr("Disconnect Session")
-                font.bold: true
-                font.pixelSize: 24
+                font.weight: Font.DemiBold
+                font.pixelSize: 22
             }
 
             Label {
                 Layout.topMargin: 10
                 Layout.alignment: Qt.AlignCenter
                 text: qsTr("Do you want the Console to go into sleep mode?")
-                font.pixelSize: 20
+                color: "#a3a3b5"
+                font.pixelSize: 18
             }
 
             RowLayout {
@@ -952,13 +1220,13 @@ Item {
 
                 Button {
                     id: sleepButton
-                    Layout.preferredWidth: 200
-                    Layout.minimumHeight: 80
-                    Layout.maximumHeight: 80
+                    Layout.preferredWidth: 160
+                    Layout.minimumHeight: 56
+                    Layout.maximumHeight: 56
                     text: qsTr("Sleep")
-                    font.pixelSize: 24
-                    Material.roundedScale: Material.SmallScale
-                    Material.background: activeFocus ? parent.Material.accent : undefined
+                    font.pixelSize: 18
+                    // Farside look.
+                    background: FBack { }
                     KeyNavigation.right: noButton
                     Keys.onReturnPressed: clicked()
                     Keys.onEscapePressed: sessionStopDialog.close()
@@ -971,13 +1239,13 @@ Item {
 
                 Button {
                     id: noButton
-                    Layout.preferredWidth: 200
-                    Layout.minimumHeight: 80
-                    Layout.maximumHeight: 80
+                    Layout.preferredWidth: 160
+                    Layout.minimumHeight: 56
+                    Layout.maximumHeight: 56
                     text: qsTr("No")
-                    font.pixelSize: 24
-                    Material.roundedScale: Material.SmallScale
-                    Material.background: activeFocus ? parent.Material.accent : undefined
+                    font.pixelSize: 18
+                    // Farside look.
+                    background: FBack { }
                     KeyNavigation.left: sleepButton
                     Keys.onReturnPressed: clicked()
                     Keys.onEscapePressed: sessionStopDialog.close()
@@ -1021,9 +1289,10 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            radius: 12
-            color: Material.background
-            border.color: "#666666"
+            // Farside look.
+            radius: 14
+            color: "#14141d"
+            border.color: "#262633"
             border.width: 1
         }
 
@@ -1033,15 +1302,16 @@ Item {
             Label {
                 Layout.alignment: Qt.AlignCenter
                 text: qsTr("Disconnect Session")
-                font.bold: true
-                font.pixelSize: 24
+                font.weight: Font.DemiBold
+                font.pixelSize: 22
             }
 
             Label {
                 Layout.topMargin: 10
                 Layout.alignment: Qt.AlignCenter
                 text: qsTr("Do you want the Console to go into sleep mode?")
-                font.pixelSize: 20
+                color: "#a3a3b5"
+                font.pixelSize: 18
             }
 
             RowLayout {
@@ -1051,13 +1321,13 @@ Item {
 
                 Button {
                     id: separateSleepButton
-                    Layout.preferredWidth: 200
-                    Layout.minimumHeight: 80
-                    Layout.maximumHeight: 80
+                    Layout.preferredWidth: 160
+                    Layout.minimumHeight: 56
+                    Layout.maximumHeight: 56
                     text: qsTr("Sleep")
-                    font.pixelSize: 24
-                    Material.roundedScale: Material.SmallScale
-                    Material.background: activeFocus ? parent.Material.accent : undefined
+                    font.pixelSize: 18
+                    // Farside look.
+                    background: FBack { }
                     KeyNavigation.right: separateNoButton
                     Keys.onReturnPressed: clicked()
                     Keys.onEscapePressed: separateSessionStopWindow.visible = false
@@ -1069,13 +1339,13 @@ Item {
 
                 Button {
                     id: separateNoButton
-                    Layout.preferredWidth: 200
-                    Layout.minimumHeight: 80
-                    Layout.maximumHeight: 80
+                    Layout.preferredWidth: 160
+                    Layout.minimumHeight: 56
+                    Layout.maximumHeight: 56
                     text: qsTr("No")
-                    font.pixelSize: 24
-                    Material.roundedScale: Material.SmallScale
-                    Material.background: activeFocus ? parent.Material.accent : undefined
+                    font.pixelSize: 18
+                    // Farside look.
+                    background: FBack { }
                     KeyNavigation.left: separateSleepButton
                     Keys.onReturnPressed: clicked()
                     Keys.onEscapePressed: separateSessionStopWindow.visible = false
@@ -1088,7 +1358,7 @@ Item {
         }
     }
 
-    Dialog {
+    FDialog {
         id: sessionPinDialog
         parent: Overlay.overlay
         x: Math.round((root.width - width) / 2)
@@ -1112,9 +1382,8 @@ Item {
         }
         onAccepted: Chiaki.enterPin(pinField.text)
         onRejected: Chiaki.stopSession(false)
-        Material.roundedScale: Material.MediumScale
 
-        TextField {
+        FField {
             id: pinField
             echoMode: Chiaki.settings.streamerMode ? TextInput.Password : TextInput.Normal
             implicitWidth: 200
@@ -1154,9 +1423,10 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            radius: 12
-            color: Material.background
-            border.color: "#666666"
+            // Farside look.
+            radius: 14
+            color: "#14141d"
+            border.color: "#262633"
             border.width: 1
         }
 
@@ -1169,11 +1439,11 @@ Item {
             Label {
                 Layout.alignment: Qt.AlignCenter
                 text: qsTr("Console Login PIN")
-                font.bold: true
-                font.pixelSize: 24
+                font.weight: Font.DemiBold
+                font.pixelSize: 22
             }
 
-            TextField {
+            FField {
                 id: separatePinField
                 Layout.topMargin: 20
                 Layout.fillWidth: true
@@ -1190,6 +1460,8 @@ Item {
 
                 Button {
                     text: qsTr("Cancel")
+                    // Farside look.
+                    background: FBack { }
                     Keys.onReturnPressed: clicked()
                     onClicked: {
                         separateSessionPinWindow.visible = false;
@@ -1201,6 +1473,8 @@ Item {
                     id: separatePinOkButton
                     text: qsTr("OK")
                     enabled: separatePinField.acceptableInput
+                    // Farside look.
+                    background: FBack { }
                     Keys.onReturnPressed: clicked()
                     onClicked: {
                         const pin = separatePinField.text;

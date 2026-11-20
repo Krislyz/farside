@@ -167,6 +167,9 @@ DialogView {
     Item {
         TabBar {
             id: bar
+            // Farside look: the bar takes the colour of the page; the smaller type keeps the tabs inside a small window.
+            Material.background: "#0b0b10"
+            font.pixelSize: 16
             anchors {
                 top: parent.top
                 left: parent.left
@@ -446,7 +449,7 @@ DialogView {
                     contentWidth: Math.max(width, generalLayout.width)
                     contentHeight: generalLayout.height
                     flickableDirection: Flickable.AutoFlickIfNeeded
-                    ScrollBar.vertical: ScrollBar {
+                    ScrollBar.vertical: FScroll {
                         policy: ScrollBar.AlwaysOn
                         visible: generalFlick.contentHeight > generalFlick.height
                     }
@@ -738,7 +741,7 @@ DialogView {
                     contentWidth: Math.max(width, videoGrid.width)
                     contentHeight: videoGrid.height
                     flickableDirection: Flickable.AutoFlickIfNeeded
-                    ScrollBar.vertical: ScrollBar {
+                    ScrollBar.vertical: FScroll {
                         policy: ScrollBar.AlwaysOn
                         visible: videoFlick.contentHeight > videoFlick.height
                     }
@@ -1081,7 +1084,7 @@ DialogView {
                     contentWidth: Math.max(width, streamGrid.width)
                     contentHeight: streamGrid.height
                     flickableDirection: Flickable.AutoFlickIfNeeded
-                    ScrollBar.vertical: ScrollBar {
+                    ScrollBar.vertical: FScroll {
                         policy: ScrollBar.AlwaysOn
                         visible: streamFlick.contentHeight > streamFlick.height
                     }
@@ -1538,7 +1541,7 @@ DialogView {
                     contentWidth: Math.max(width, audiowifigrid.width)
                     contentHeight: audiowifigrid.height
                     flickableDirection: Flickable.AutoFlickIfNeeded
-                    ScrollBar.vertical: ScrollBar {
+                    ScrollBar.vertical: FScroll {
                         id: audiowifiScrollbar
                         policy: ScrollBar.AlwaysOn
                         visible: audiowifiFlick.contentHeight > audiowifiFlick.height
@@ -1863,7 +1866,7 @@ DialogView {
                     contentWidth: Math.max(width, consolesLayout.width)
                     contentHeight: consolesLayout.height
                     flickableDirection: Flickable.AutoFlickIfNeeded
-                    ScrollBar.vertical: ScrollBar {
+                    ScrollBar.vertical: FScroll {
                         policy: ScrollBar.AlwaysOn
                         visible: consolesFlick.contentHeight > consolesFlick.height
                     }
@@ -1913,7 +1916,7 @@ DialogView {
                             }
                             keyNavigationEnabled: false
                             width: 700
-                            ScrollBar.vertical: ScrollBar {
+                            ScrollBar.vertical: FScroll {
                                 id: consolesScrollbar
                                 policy: ScrollBar.AlwaysOn
                                 visible: consolesView.contentHeight > consolesView.height
@@ -1932,6 +1935,8 @@ DialogView {
                                     property bool lastDownInFocusChain: index > consolesView.count + hiddenConsolesView.count - 2
 
                                     id: autoConnectButton
+                                    // Farside look.
+                                    indicator: FTick { }
                                     anchors {
                                         left: parent.left
                                         verticalCenter: parent.verticalCenter
@@ -2008,6 +2013,8 @@ DialogView {
                                     property bool firstInFocusChain: false
                                     property bool lastInFocusChain: index > consolesView.count + hiddenConsolesView.count - 2
                                     Material.background: visualFocus ? Material.accent : undefined
+                                    // Farside look.
+                                    background: FBack { }
 
                                     Component.onDestruction: {
                                         if (visualFocus) {
@@ -2106,7 +2113,7 @@ DialogView {
                             }
                             clip: true
                             width: 500
-                            ScrollBar.vertical: ScrollBar {
+                            ScrollBar.vertical: FScroll {
                                 id: hiddenConsolesScrollbar
                                 policy: ScrollBar.AlwaysOn
                                 visible: hiddenConsolesView.contentHeight > hiddenConsolesView.height
@@ -2121,6 +2128,8 @@ DialogView {
                                     property bool firstInFocusChain: false
                                     property bool lastInFocusChain: index > hiddenConsolesView.count - 2
                                     Material.background: visualFocus ? Material.accent : undefined
+                                    // Farside look.
+                                    background: FBack { }
 
                                     Component.onDestruction: {
                                         if (visualFocus) {
@@ -2200,7 +2209,7 @@ DialogView {
                         else if (bottom > contentY + height)
                             contentY = bottom - height;
                     }
-                    ScrollBar.vertical: ScrollBar {
+                    ScrollBar.vertical: FScroll {
                         policy: ScrollBar.AlwaysOn
                         visible: keysFlick.contentHeight > keysFlick.height
                     }
@@ -2223,6 +2232,8 @@ DialogView {
                             onClicked: Chiaki.settings.clearKeyMapping()
                             Material.roundedScale: Material.SmallScale
                             Material.background: visualFocus ? Material.accent : undefined
+                            // Farside look.
+                            background: FBack { }
                             onActiveFocusChanged: if (activeFocus) keysFlick.ensureItemVisible(this)
 
                             Component.onDestruction: {
@@ -2285,6 +2296,8 @@ DialogView {
                             property bool lastInFocusChain: false
                             Material.roundedScale: Material.SmallScale
                             Material.background: visualFocus ? Material.accent : undefined
+                            // Farside look.
+                            indicator: FTick { }
                             onActiveFocusChanged: if (activeFocus) keysFlick.ensureItemVisible(this)
 
                             Component.onDestruction: {
@@ -2357,6 +2370,8 @@ DialogView {
                             property bool lastInFocusChain: false
                             Material.roundedScale: Material.SmallScale
                             Material.background: visualFocus ? Material.accent : undefined
+                            // Farside look.
+                            indicator: FTick { }
                             onActiveFocusChanged: if (activeFocus) keysFlick.ensureItemVisible(this)
 
                             Component.onDestruction: {
@@ -2429,6 +2444,8 @@ DialogView {
                                     text: modelData.keyName
                                     Material.roundedScale: Material.SmallScale
                                     Material.background: visualFocus ? Material.accent : undefined
+                                    // Farside look.
+                                    background: FBack { }
                                     onActiveFocusChanged: if (activeFocus) keysFlick.ensureItemVisible(this)
                                     Component.onDestruction: {
                                         if (visualFocus) {
@@ -2534,7 +2551,7 @@ DialogView {
                     contentWidth: Math.max(width, controllersLayout.width)
                     contentHeight: controllersLayout.height
                     flickableDirection: Flickable.AutoFlickIfNeeded
-                    ScrollBar.vertical: ScrollBar {
+                    ScrollBar.vertical: FScroll {
                         id: controllersScrollbar
                         policy: ScrollBar.AlwaysOn
                         visible: controllersFlick.contentHeight > controllersFlick.height
@@ -2853,7 +2870,7 @@ DialogView {
                     contentWidth: Math.max(width, remoteGrid.width)
                     contentHeight: remoteGrid.y + remoteGrid.height
                     flickableDirection: Flickable.AutoFlickIfNeeded
-                    ScrollBar.vertical: ScrollBar {
+                    ScrollBar.vertical: FScroll {
                         policy: ScrollBar.AlwaysOn
                         visible: remoteFlick.contentHeight > remoteFlick.height
                     }
@@ -2998,7 +3015,7 @@ DialogView {
                     contentWidth: Math.max(width, configGrid.width)
                     contentHeight: configGrid.y + configGrid.height
                     flickableDirection: Flickable.AutoFlickIfNeeded
-                    ScrollBar.vertical: ScrollBar {
+                    ScrollBar.vertical: FScroll {
                         policy: ScrollBar.AlwaysOn
                         visible: configFlick.contentHeight > configFlick.height
                     }
@@ -3052,7 +3069,7 @@ DialogView {
 
                     C.Button {
                         id: aboutButton
-                        text: qsTr("About %1-ng").arg(Qt.application.name)
+                        text: qsTr("About Farside")
                         onClicked: aboutDialog.open()
                         Material.roundedScale: Material.SmallScale
                     }
@@ -3108,12 +3125,12 @@ DialogView {
             }
         }
 
-        Dialog {
+        FDialog {
             id: aboutDialog
             parent: Overlay.overlay
             x: Math.round((root.width - width) / 2)
             y: Math.round((root.height - height) / 2)
-            title: qsTr("About %1-ng").arg(Qt.application.name)
+            title: qsTr("About Farside")
             modal: true
             standardButtons: Dialog.Ok
             Material.roundedScale: Material.MediumScale
@@ -3127,16 +3144,19 @@ DialogView {
 
                 Image {
                     Layout.preferredWidth: 200
+                    Layout.preferredHeight: 200
+                    Layout.alignment: Qt.AlignTop
+                    sourceSize: Qt.size(400, 400)
                     fillMode: Image.PreserveAspectFit
                     verticalAlignment: Image.AlignTop
-                    source: "qrc:icons/chiaking-logo.svg"
+                    source: "qrc:/icons/farside.svg"
                 }
 
                 Label {
                     Layout.preferredWidth: 400
                     verticalAlignment: Text.AlignTop
                     wrapMode: Text.Wrap
-                    text: "<h1>chiaki-ng</h1> by Street Pea, version %1
+                    text: "<h1>Farside</h1> built on chiaki-ng by Street Pea, version %1
                         <h2>Fork of Chiaki</h2> by Florian Markl at version 2.1.1
 
                         <p>This program is free software: you can redistribute it and/or modify
@@ -3151,7 +3171,7 @@ DialogView {
             }
         }
 
-        Dialog {
+        FDialog {
             id: keyDialog
             focus: false
             property int buttonValue
@@ -3197,7 +3217,7 @@ DialogView {
             }
         }
 
-        Dialog {
+        FDialog {
             id: controllerMappingDialog
             property bool resetFocus: true
             property bool resetMapping: false
@@ -3243,7 +3263,7 @@ DialogView {
             }
         }
 
-        Dialog {
+        FDialog {
             id: steamControllerMappingDialog
             property bool resetMapping: false
             parent: Overlay.overlay

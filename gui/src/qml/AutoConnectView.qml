@@ -8,7 +8,7 @@ Rectangle {
     id: view
     property bool allowClose: false
     property bool textVisible: false
-    color: "black"
+    color: "#0b0b10"
 
     function stop() {
         if (!allowClose)
@@ -42,6 +42,8 @@ Rectangle {
     Label {
         id: infoLabel
         anchors.centerIn: parent
+        color: "#f3f3f6"
+        font.family: "Inter"
         opacity: view.allowClose ? 1.0 : 0.0
         visible: opacity
         text: qsTr("Waiting for console...")
@@ -71,6 +73,8 @@ Rectangle {
                 top: spinner.bottom
                 horizontalCenter: spinner.horizontalCenter
             }
+            color: "#a3a3b5"
+            font.family: "Inter"
             opacity: textVisible ? 1.0: 0.0
             visible: opacity
             text: qsTr("Press %1 to cancel connection").arg(Chiaki.controllers.length ? (root.controllerButton("circle").includes("deck") ? "B" : "Circle") : "escape or right-click")

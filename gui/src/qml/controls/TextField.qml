@@ -2,7 +2,10 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 
-TextField {
+import ".."
+
+// Farside look (see FField.qml).
+FField {
     property bool firstInFocusChain: false
     property bool lastInFocusChain: false
     property bool sendOutput: false

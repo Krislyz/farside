@@ -1,6 +1,7 @@
 #include "qmlmainwindow.h"
 #include "qmlbackend.h"
 #include "qmlsvgprovider.h"
+#include "farsidebackend.h"
 #include "chiaki/log.h"
 #include "chiaki/time.h"
 #include "streamsession.h"
@@ -130,10 +131,11 @@ public:
         panel->setObjectName(QStringLiteral("statsPanel"));
         panel->setStyleSheet(QStringLiteral(
             "#statsPanel {"
-            "  background: rgba(0, 0, 0, 140);"
+            "  background: rgba(11, 11, 16, 215);"
+            "  border: 1px solid #262633;"
             "  border-radius: 10px;"
             "}"
-            "QLabel { color: white; }"));
+            "QLabel { color: #a3a3b5; }"));
         panel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Minimum);
 
         auto *panelLayout = new QVBoxLayout(panel);
@@ -161,18 +163,19 @@ public:
             return row;
         };
 
-        QFont titleFont;
-        titleFont.setPixelSize(15);
-        QFont valueFont;
-        valueFont.setPixelSize(18);
-        valueFont.setBold(true);
+        // Farside: the look of the app (Inter, light values, pink for the bitrate, red only for losses).
+        QFont titleFont(QStringLiteral("Inter"));
+        titleFont.setPixelSize(14);
+        QFont valueFont(QStringLiteral("Inter"));
+        valueFont.setPixelSize(17);
+        valueFont.setWeight(QFont::DemiBold);
 
-        bitrateRow = makeRow(tr("Mbps"), QColor(QStringLiteral("#00a7ff")), titleFont, valueFont, bitrateValue);
-        queueRow = makeRow(tr("queue depth avg"), QColor(QStringLiteral("#90caf9")), titleFont, valueFont, queueDepthValue);
-        pendingRow = makeRow(tr("pending frame age"), QColor(QStringLiteral("#90caf9")), titleFont, valueFont, pendingAgeValue);
-        packetLossRow = makeRow(tr("packet loss"), QColor(QStringLiteral("#ef9a9a")), titleFont, valueFont, packetLossValue);
-        droppedFramesRow = makeRow(tr("dropped frames"), QColor(QStringLiteral("#ef9a9a")), titleFont, valueFont, droppedFramesValue);
-        lostFramesRow = makeRow(tr("lost frames"), QColor(QStringLiteral("#ef9a9a")), titleFont, valueFont, lostFramesValue);
+        bitrateRow = makeRow(tr("Mbps"), QColor(QStringLiteral("#fd4fa4")), titleFont, valueFont, bitrateValue);
+        queueRow = makeRow(tr("queue depth avg"), QColor(QStringLiteral("#f3f3f6")), titleFont, valueFont, queueDepthValue);
+        pendingRow = makeRow(tr("pending frame age"), QColor(QStringLiteral("#f3f3f6")), titleFont, valueFont, pendingAgeValue);
+        packetLossRow = makeRow(tr("packet loss"), QColor(QStringLiteral("#ec6078")), titleFont, valueFont, packetLossValue);
+        droppedFramesRow = makeRow(tr("dropped frames"), QColor(QStringLiteral("#ec6078")), titleFont, valueFont, droppedFramesValue);
+        lostFramesRow = makeRow(tr("lost frames"), QColor(QStringLiteral("#ec6078")), titleFont, valueFont, lostFramesValue);
 
         outer->addWidget(panel, 0, Qt::AlignRight | Qt::AlignVCenter);
 
@@ -2773,6 +2776,37 @@ void QmlMainWindow::releaseInput()
         session->BlockInput(grab_input);
 }
 
+// ---- Farside: floating bar at the top of the stream ----
+
+void QmlMainWindow::setBarHot(bool hot)
+{
+    if (bar_hot == hot)
+        return;
+    bar_hot = hot;
+    // The bar needs a visible pointer; without it the stream goes back to the user's "hide cursor" setting.
+    if (!grab_input)
+        setCursor(!hot && has_video && settings->GetHideCursor() ? Qt::BlankCursor : Qt::ArrowCursor);
+    emit barHotChanged();
+    scheduleUpdate(true, UpdateRequestReason::Unknown);
+}
+
+void QmlMainWindow::setBarOpen(bool open)
+{
+    if (bar_open == open)
+        return;
+    bar_open = open;
+    emit barOpenChanged();
+    scheduleUpdate(true, UpdateRequestReason::Unknown);
+}
+
+void QmlMainWindow::toggleFullscreen()
+{
+    if (windowState() != Qt::WindowFullScreen)
+        fullscreenTime();
+    else
+        normalTime();
+}
+
 void QmlMainWindow::requestOverlayUpdate()
 {
     scheduleUpdate(true, UpdateRequestReason::Unknown);
@@ -2881,9 +2915,9 @@ void QmlMainWindow::setSettings(Settings *new_settings)
     QString profile = settings->GetCurrentProfile();
     qCCritical(chiakiGui) << "Current Profile: " << profile;
     if(profile.isEmpty())
-        QGuiApplication::setApplicationDisplayName("chiaki-ng");
+        QGuiApplication::setApplicationDisplayName("Farside");
     else
-        QGuiApplication::setApplicationDisplayName(QString("chiaki-ng:%1").arg(profile));
+        QGuiApplication::setApplicationDisplayName(QString("Farside:%1").arg(profile));
     this->setTitle(QGuiApplication::applicationDisplayName());
 }
 
@@ -5152,6 +5186,7 @@ renderer_backend_ready:
 
     qml_engine = new QQmlEngine(this);
     qml_engine->addImageProvider(QStringLiteral("svg"), new QmlSvgProvider);
+    qml_engine->addImageProvider(QStringLiteral("farsideqr"), new FarsideQrProvider);
     if (!qml_engine->incubationController())
         qml_engine->setIncubationController(quick_window->incubationController());
     connect(qml_engine, &QQmlEngine::quit, this, &QWindow::close);
@@ -7709,6 +7744,30 @@ bool QmlMainWindow::event(QEvent *event)
     case QEvent::MouseButtonRelease:
         if (static_cast<QMouseEvent*>(event)->source() != Qt::MouseEventNotSynthesized)
             return true;
+        // Farside: during a stream the mouse normally belongs to the PS5. The strip along the top edge is
+        // the exception: moving into it shows the floating bar, and clicks there go to the bar.
+        if (session && !grab_input && has_video) {
+            const qreal y = static_cast<QMouseEvent*>(event)->position().y();
+            const bool near_top = y < (bar_open ? 96 : 56);
+            if (event->type() == QEvent::MouseMove) {
+                if (!bar_timer) {
+                    bar_timer = new QTimer(this);
+                    bar_timer->setSingleShot(true);
+                    connect(bar_timer, &QTimer::timeout, this, [this]() { setBarHot(false); });
+                }
+                if (near_top) {
+                    bar_timer->stop();
+                    setBarHot(true);
+                } else if (bar_hot && !bar_timer->isActive()) {
+                    // Opened, it stays 3 seconds after the mouse leaves (as capstream does); the bare arrow goes sooner.
+                    bar_timer->start(bar_open ? 3000 : 800);
+                }
+            }
+            if (near_top && bar_hot) {
+                QGuiApplication::sendEvent(quick_window, event);
+                return true;
+            }
+        }
         if (session && !grab_input) {
             if (event->type() == QEvent::MouseMove)
                 session->HandleMouseMoveEvent(static_cast<QMouseEvent*>(event), width(), height());

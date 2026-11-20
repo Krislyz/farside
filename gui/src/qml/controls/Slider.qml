@@ -2,7 +2,10 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 
-Slider {
+import ".."
+
+// Farside look (see FSlider.qml).
+FSlider {
     property bool firstInFocusChain: false
     property bool lastInFocusChain: false
     property bool sendOutput: false

@@ -31,7 +31,7 @@ DialogView {
                             text: qsTr("Remote Play PIN (4 digits):")
                         }
 
-                        TextField {
+                        FField {
                             id: pin
                             validator: RegularExpressionValidator { regularExpression: /[0-9]{4}/ }
                             echoMode: Chiaki.settings.streamerMode ? TextInput.Password : TextInput.Normal

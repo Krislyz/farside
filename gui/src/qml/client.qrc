@@ -1,0 +1,26 @@
+<RCC>
+  <qresource prefix="/">
+    <file>FarsideClientMain.qml</file>
+    <file>FarsideClientShell.qml</file>
+    <file>FarsideRemotePlay.qml</file>
+    <file>FHeader.qml</file>
+    <file>FFooter.qml</file>
+    <file>FButton.qml</file>
+    <file>FCombo.qml</file>
+    <file>FCheck.qml</file>
+    <file>FText.qml</file>
+    <file>FField.qml</file>
+    <file>FScroll.qml</file>
+    <file>FBack.qml</file>
+    <file>FTick.qml</file>
+    <file>FSlider.qml</file>
+  </qresource>
+  <qresource prefix="/fonts">
+    <file alias="Inter-Regular.ttf">../../res/fonts/Inter-Regular.ttf</file>
+    <file alias="Inter-SemiBold.ttf">../../res/fonts/Inter-SemiBold.ttf</file>
+    <file alias="SpaceGrotesk-SemiBold.ttf">../../res/fonts/SpaceGrotesk-SemiBold.ttf</file>
+  </qresource>
+  <qresource prefix="/icons">
+    <file alias="farside.svg">../../res/farside.svg</file>
+  </qresource>
+</RCC>

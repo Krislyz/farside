@@ -78,9 +78,16 @@ Window {
         Keys.onMenuPressed: streamMenuWindow.closeRequested()
         Keys.onEscapePressed: streamMenuWindow.closeRequested()
 
+        // Farside look (colours of FarsideShell.qml).
         Rectangle {
             anchors.fill: parent
-            color: "#2b2b2b"
+            color: "#0b0b10"
+
+            Rectangle {
+                width: parent.width
+                height: 1
+                color: "#262633"
+            }
         }
 
         RowLayout {
@@ -93,7 +100,10 @@ Window {
             spacing: 0
 
             ToolButton {
+                // Farside look.
+                background: FBack { flat: true }
                 id: closeButton
+                font.family: "Inter"
                 Layout.rightMargin: 20
                 text: "×"
                 padding: 10
@@ -116,8 +126,9 @@ Window {
                 Layout.rightMargin: 10
             }
 
-            Slider {
+            FSlider {
                 id: volumeSlider
+                font.family: "Inter"
                 Layout.rightMargin: 20
                 orientation: Qt.Vertical
                 from: 0
@@ -147,7 +158,10 @@ Window {
             }
 
             ToolButton {
+                // Farside look.
+                background: FBack { flat: true }
                 id: muteButton
+                font.family: "Inter"
                 Layout.rightMargin: 20
                 text: qsTr("Mic")
                 padding: 10
@@ -162,7 +176,10 @@ Window {
             }
 
             ToolButton {
+                // Farside look.
+                background: FBack { flat: true }
                 id: zoomButton
+                font.family: "Inter"
                 text: qsTr("Zoom")
                 padding: 10
                 checkable: true
@@ -174,8 +191,9 @@ Window {
                 Keys.onEscapePressed: streamMenuWindow.closeRequested()
             }
 
-            Slider {
+            FSlider {
                 id: zoomFactor
+                font.family: "Inter"
                 orientation: Qt.Vertical
                 from: -1
                 to: 4
@@ -210,7 +228,10 @@ Window {
             }
 
             ToolButton {
+                // Farside look.
+                background: FBack { flat: true }
                 id: stretchButton
+                font.family: "Inter"
                 Layout.rightMargin: 50
                 text: qsTr("Stretch")
                 padding: 10
@@ -224,7 +245,10 @@ Window {
             }
 
             ToolButton {
+                // Farside look.
+                background: FBack { flat: true }
                 id: defaultButton
+                font.family: "Inter"
                 text: qsTr("Default")
                 padding: 10
                 checkable: true
@@ -245,7 +269,10 @@ Window {
             }
 
             ToolButton {
+                // Farside look.
+                background: FBack { flat: true }
                 id: highQualityButton
+                font.family: "Inter"
                 text: qsTr("High Quality")
                 padding: 10
                 checkable: true
@@ -261,7 +288,10 @@ Window {
             }
 
             ToolButton {
+                // Farside look.
+                background: FBack { flat: true }
                 id: highQualitySpatialButton
+                font.family: "Inter"
                 text: qsTr("HQ + Spatial")
                 padding: 10
                 checkable: true
@@ -277,7 +307,10 @@ Window {
             }
 
             ToolButton {
+                // Farside look.
+                background: FBack { flat: true }
                 id: highQualityAdvancedSpatialButton
+                font.family: "Inter"
                 text: qsTr("HQ + Adv Spatial")
                 padding: 10
                 checkable: true
@@ -298,7 +331,10 @@ Window {
             }
 
             ToolButton {
+                // Farside look.
+                background: FBack { flat: true }
                 id: customButton
+                font.family: "Inter"
                 text: qsTr("Custom")
                 Layout.rightMargin: 40
                 padding: 10
@@ -315,7 +351,10 @@ Window {
             }
 
             ToolButton {
+                // Farside look.
+                background: FBack { flat: true }
                 id: displaySettingsButton
+                font.family: "Inter"
                 text: qsTr("Display")
                 padding: 10
                 checkable: false
@@ -328,7 +367,10 @@ Window {
             }
 
             ToolButton {
+                // Farside look.
+                background: FBack { flat: true }
                 id: placeboSettingsButton
+                font.family: "Inter"
                 text: qsTr("Placebo")
                 icon.source: "qrc:/icons/settings-20px.svg"
                 padding: 10
@@ -348,6 +390,8 @@ Window {
                 bottomMargin: 5
             }
             text: "Mbps"
+            color: "#a3a3b5"
+            font.family: "Inter"
             font.pixelSize: 18
             visible: Chiaki.session
 
@@ -366,6 +410,7 @@ Window {
 
         Label {
             id: consoleNameLabel
+            font.family: "Inter"
             anchors {
                 right: parent.right
                 verticalCenter: parent.verticalCenter
@@ -388,6 +433,7 @@ Window {
 
                 Label {
                     text: qsTr("packet loss")
+                    color: "#a3a3b5"
                     font.pixelSize: 15
                     opacity: parent.visible && Chiaki.session ? 1.0 : 0.0
                     visible: opacity
@@ -401,7 +447,7 @@ Window {
                             rightMargin: 5
                         }
                         text: visible ? "%1<font size=\"1\">%</font>".arg((((Chiaki.session && isFinite(Chiaki.session.averagePacketLoss)) ? Chiaki.session.averagePacketLoss : 0) * 100).toFixed(1)) : ""
-                        color: "#ef9a9a"
+                        color: "#ec6078"
                         font.bold: true
                         font.pixelSize: 18
                     }
@@ -410,6 +456,7 @@ Window {
                 Label {
                     Layout.leftMargin: droppedFramesLabel.width + 6
                     text: qsTr("dropped frames")
+                    color: "#a3a3b5"
                     font.pixelSize: 15
                     opacity: parent.visible && Chiaki.window.droppedFrames ? 1.0 : 0.0
                     visible: opacity
@@ -424,7 +471,7 @@ Window {
                             rightMargin: 5
                         }
                         text: visible ? Chiaki.window.droppedFrames : ""
-                        color: "#ef9a9a"
+                        color: "#ec6078"
                         font.bold: true
                         font.pixelSize: 18
                     }

@@ -33,6 +33,9 @@ DialogView {
     Item {
         TabBar {
             id: bar
+            // Farside look: the bar takes the colour of the page; the smaller type keeps the tabs inside a small window.
+            Material.background: "#0b0b10"
+            font.pixelSize: 16
             anchors {
                 top: parent.top
                 left: parent.left
@@ -122,7 +125,7 @@ DialogView {
                         visible: options_url
                     }
 
-                    TextField {
+                    FField {
                         id: openurl
                         echoMode: Chiaki.settings.streamerMode ? TextInput.Password : TextInput.Normal
                         text: options_url

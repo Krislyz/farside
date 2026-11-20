@@ -2,6 +2,22 @@
   <qresource prefix="/">
     <file>qtquickcontrols2.conf</file>
     <file>Main.qml</file>
+    <file>FarsideShell.qml</file>
+    <file>FarsidePlay.qml</file>
+    <file>FarsideRemotePlay.qml</file>
+    <file>FarsideSettings.qml</file>
+    <file>FHeader.qml</file>
+    <file>FFooter.qml</file>
+    <file>FButton.qml</file>
+    <file>FCombo.qml</file>
+    <file>FCheck.qml</file>
+    <file>FText.qml</file>
+    <file>FDialog.qml</file>
+    <file>FField.qml</file>
+    <file>FScroll.qml</file>
+    <file>FBack.qml</file>
+    <file>FTick.qml</file>
+    <file>FSlider.qml</file>
     <file>MainView.qml</file>
     <file>StreamView.qml</file>
     <file>StreamMenuWindow.qml</file>

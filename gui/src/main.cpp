@@ -19,6 +19,13 @@ int main(int argc, char *argv[]) { return real_main(argc, argv); }
 #include <controllermanager.h>
 #include <discoverymanager.h>
 #include <qmlmainwindow.h>
+#include <farsidesession.h>
+#include <farsideqr.h>
+#include <farsideupdate.h>
+#include <cstring>
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
 #include <QApplication>
 #include <QtTypes>
 
@@ -66,6 +73,25 @@ int RunMain(QGuiApplication &app, Settings *settings, bool exit_app_on_stream_ex
 
 int real_main(int argc, char *argv[])
 {
+	// Farside: run the pairing self-test and exit with its result (0 = pass). The build runs this.
+	for(int i = 1; i < argc; i++)
+		if(!strcmp(argv[i], "--farside-selftest"))
+		{
+			// Checks 1 to 14 need nothing; 15 to 23 run real sockets and need an event loop;
+			// 201 to 205 draw and read QR pictures.
+			QCoreApplication selftest_app(argc, argv);
+			if(const int core = Farside::selfTest())
+				return core;
+			if(const int sessions = Farside::selfTestSessions())
+				return sessions;
+			// 30 to 37: the same without the tunnel.
+			if(const int direct = Farside::selfTestDirect())
+				return direct;
+			// 50 to 57: which release is an update.
+			if(const int update = Farside::selfTestUpdate())
+				return update;
+			return Farside::selfTestQr();
+		}
 	qRegisterMetaType<DiscoveryHost>();
 	qRegisterMetaType<RegisteredHost>();
 	qRegisterMetaType<HostMAC>();
@@ -76,7 +102,11 @@ int real_main(int argc, char *argv[])
 	QGuiApplication::setOrganizationName("Chiaki");
 	QGuiApplication::setApplicationName("Chiaki");
 	QGuiApplication::setApplicationVersion(CHIAKI_VERSION);
-	QGuiApplication::setApplicationDisplayName("chiaki-ng");
+	QGuiApplication::setApplicationDisplayName("Farside");
+#ifdef Q_OS_WIN
+	// Farside: Setup looks for this name and waits for the program to end before it replaces the files.
+	CreateMutexW(nullptr, FALSE, L"FarsideHostRunning");
+#endif
 #if defined(Q_OS_MACOS)
 	// Use a plain CAMetalLayer for Vulkan windows. Qt's own layer presents in step with each
 	// live resize, but our swapchain presents from the render thread, so every resize step
@@ -146,7 +176,7 @@ int real_main(int argc, char *argv[])
 #ifdef Q_OS_MACOS
 	QGuiApplication::setWindowIcon(QIcon(":/icons/chiaking_macos.svg"));
 #else
-	QGuiApplication::setWindowIcon(QIcon(":/icons/chiaking.svg"));
+	QGuiApplication::setWindowIcon(QIcon(":/icons/farside.svg"));
 #endif
 
 	QCommandLineParser parser;
@@ -204,7 +234,7 @@ int real_main(int argc, char *argv[])
 		settings.SetCurrentProfile(parser.value(profile_option));
 	Settings alt_settings(parser.isSet(profile_option) ? "" : settings.GetCurrentProfile());
 	if(!settings.GetCurrentProfile().isEmpty())
-		QGuiApplication::setApplicationDisplayName(QString("chiaki-ng:%1").arg(settings.GetCurrentProfile()));
+		QGuiApplication::setApplicationDisplayName(QString("Farside:%1").arg(settings.GetCurrentProfile()));
 	bool use_alt_settings = false;
 	if(!parser.isSet(profile_option))
 		use_alt_settings = true;

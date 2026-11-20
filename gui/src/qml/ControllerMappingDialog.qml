@@ -41,6 +41,8 @@ DialogView {
 
         CheckBox {
             id: analogStickMapping
+            // Farside look.
+            indicator: FTick { }
             property bool firstInFocusChain: true
             property bool lastInFocusChain: false
             text: qsTr("Allow mapping analog sticks and L2/R2")
@@ -106,6 +108,8 @@ DialogView {
                                 modelData.physicalButton[0]
                         }
                         Material.background: visualFocus ? Material.accent : undefined
+                        // Farside look.
+                        background: FBack { }
 
                         Component.onDestruction: {
                             if (visualFocus) {
@@ -195,6 +199,8 @@ DialogView {
                                 modelData.physicalButton[1]
                         }
                         Material.background: visualFocus ? Material.accent : undefined
+                        // Farside look.
+                        background: FBack { }
 
                         Component.onDestruction: {
                             if (visualFocus) {
@@ -276,7 +282,7 @@ DialogView {
             }
         }
 
-        Dialog {
+        FDialog {
             id: buttonDialog
             property int buttonValue
             property int buttonIndex

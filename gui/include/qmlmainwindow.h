@@ -57,6 +57,10 @@ class QmlMainWindow : public QWindow
 {
     Q_OBJECT
     Q_PROPERTY(bool hasVideo READ hasVideo NOTIFY hasVideoChanged)
+    // Farside: the floating bar at the top of the stream. barHot = show it (the mouse is, or just was,
+    // at the top edge). barOpen = it is expanded; collapsed it is only a small tab with an arrow.
+    Q_PROPERTY(bool barHot READ barHot NOTIFY barHotChanged)
+    Q_PROPERTY(bool barOpen READ barOpen WRITE setBarOpen NOTIFY barOpenChanged)
     Q_PROPERTY(int droppedFrames READ droppedFrames NOTIFY droppedFramesChanged)
     Q_PROPERTY(bool keepVideo READ keepVideo WRITE setKeepVideo NOTIFY keepVideoChanged)
     Q_PROPERTY(bool loadingTransitionComplete READ loadingTransitionComplete NOTIFY loadingTransitionCompleteChanged)
@@ -148,6 +152,10 @@ public:
 
     Q_INVOKABLE void grabInput();
     Q_INVOKABLE void releaseInput();
+    Q_INVOKABLE void toggleFullscreen();
+    bool barHot() const { return bar_hot; }
+    bool barOpen() const { return bar_open; }
+    void setBarOpen(bool open);
     Q_INVOKABLE void requestOverlayUpdate();
     Q_INVOKABLE void setOverlayInteractionActive(bool active);
     Q_INVOKABLE void setStatsOverlayActive(bool active);
@@ -177,6 +185,8 @@ signals:
     void zoomFactorChanged();
     void videoPresetChanged();
     void menuRequested();
+    void barHotChanged();
+    void barOpenChanged();
     void directStreamChanged();
     void queueDepthAverageChanged();
     void pendingFrameAgeChanged();
@@ -481,6 +491,12 @@ private:
         PFN_vkGetPhysicalDeviceQueueFamilyProperties vkGetPhysicalDeviceQueueFamilyProperties;
         PFN_vkGetPhysicalDeviceProperties2 vkGetPhysicalDeviceProperties2;
     } vk_funcs;
+
+    // Farside bar state (see the barHot / barOpen properties).
+    bool bar_hot = false;
+    bool bar_open = false;
+    class QTimer *bar_timer = nullptr;
+    void setBarHot(bool hot);
 
     friend class QmlBackend;
 };

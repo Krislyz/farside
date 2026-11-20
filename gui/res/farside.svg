@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254" role="img" aria-label="Farside">
+  <!-- Farside app icon: the mark on the concept's dark background, as a rounded tile. Same coordinates as the concept image. -->
+  <defs>
+    <linearGradient id="fold" gradientUnits="userSpaceOnUse" x1="505" y1="500" x2="893" y2="538">
+      <stop offset="0" stop-color="#FF3E91"/>
+      <stop offset="1" stop-color="#9E1F5B"/>
+    </linearGradient>
+  </defs>
+  <rect width="1254" height="1254" rx="270" fill="#10121B"/>
+  <polygon points="272,760 517,405 497,597" fill="#FF53A9"/>
+  <polygon points="517,405 1063,290 893,538" fill="#FD4FA4"/>
+  <polygon points="517,405 893,538 497,597" fill="url(#fold)"/>
+  <polygon points="320,963 552,623 872,604 802,714 623,719" fill="#E9EEF6"/>
+  <polygon points="623,719 802,714 758,782 624,820" fill="#3F546F"/>
+  <polygon points="623,719 624,820 320,963" fill="#4C6581"/>
+</svg>
