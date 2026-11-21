@@ -873,6 +873,18 @@ Item {
                     onToggled: Farside.logEnabled = checked
                 }
             }
+            RowLayout {
+                visible: shell.isClient
+                spacing: 12
+
+                FText { text: qsTr("Updates") }
+                FCombo {
+                    implicitWidth: 320
+                    model: [qsTr("Stable"), qsTr("Alpha: early versions, may break")]
+                    currentIndex: Farside.updateChannel === "alpha" ? 1 : 0
+                    onActivated: (index) => Farside.updateChannel = index === 1 ? "alpha" : "stable"
+                }
+            }
 
             Item { Layout.fillHeight: true }
         }

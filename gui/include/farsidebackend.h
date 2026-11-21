@@ -70,6 +70,9 @@ class FarsideBackend : public QObject
 	Q_PROPERTY(QString version READ version CONSTANT)
 	Q_PROPERTY(QString updateVersion READ updateVersion NOTIFY updateChanged)
 	Q_PROPERTY(QString updateState READ updateState NOTIFY updateChanged)
+	// Which releases count as updates: "stable" (full releases) or "alpha" (also the ones marked
+	// "pre-release" on GitHub: early versions that may break).
+	Q_PROPERTY(QString updateChannel READ updateChannel WRITE setUpdateChannel NOTIFY updateChannelChanged)
 
 	public:
 		explicit FarsideBackend(QObject *parent = nullptr);
@@ -99,6 +102,8 @@ class FarsideBackend : public QObject
 		QString version() const { return QStringLiteral(FARSIDE_VERSION); }
 		QString updateVersion() const { return update.version; }
 		QString updateState() const { return update_state; }
+		QString updateChannel() const { return update_channel; }
+		void setUpdateChannel(const QString &channel);
 
 		Q_INVOKABLE void newCode();
 		Q_INVOKABLE void answerPair(bool accept);
@@ -142,6 +147,7 @@ class FarsideBackend : public QObject
 		void logEnabledChanged();
 		void toolsChanged();
 		void updateChanged();
+		void updateChannelChanged();
 		// Empty text = paired. Otherwise a sentence for the user.
 		void pairFinished(const QString &problem);
 
@@ -171,4 +177,5 @@ class FarsideBackend : public QObject
 		QTimer update_timer;
 		Farside::Update update;
 		QString update_state, update_file;
+		QString update_channel = QStringLiteral("stable");
 };

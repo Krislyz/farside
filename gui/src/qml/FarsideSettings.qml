@@ -36,6 +36,72 @@ Item {
             width: Math.min(scroller.width - 56, 980)
             spacing: 18
 
+            // The stream's own settings live in a dialog of their own (chiaki-ng's): this is the way in.
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: stream.implicitHeight + 40
+                radius: 14
+                color: shell.card
+                border.color: shell.line
+
+                ColumnLayout {
+                    id: stream
+                    x: 22
+                    y: 20
+                    width: parent.width - 44
+                    spacing: 14
+
+                    FText { text: qsTr("Stream"); font.pixelSize: 15; font.weight: Font.DemiBold }
+                    FText {
+                        Layout.fillWidth: true
+                        text: qsTr("Video and sound of the stream, controllers, keys, consoles and your PSN sign-in.")
+                        color: shell.muted
+                        wrapMode: Text.WordWrap
+                    }
+                    FButton {
+                        primary: true
+                        text: qsTr("Open stream settings")
+                        onClicked: root.showSettingsDialog()
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: updates.implicitHeight + 40
+                radius: 14
+                color: shell.card
+                border.color: shell.line
+
+                ColumnLayout {
+                    id: updates
+                    x: 22
+                    y: 20
+                    width: parent.width - 44
+                    spacing: 14
+
+                    FText { text: qsTr("Updates"); font.pixelSize: 15; font.weight: Font.DemiBold }
+                    RowLayout {
+                        spacing: 16
+
+                        FText { text: qsTr("Channel") }
+                        FCombo {
+                            implicitWidth: 380
+                            model: [qsTr("Stable"), qsTr("Alpha: early versions, may break")]
+                            currentIndex: Farside.updateChannel === "alpha" ? 1 : 0
+                            onActivated: (index) => Farside.updateChannel = index === 1 ? "alpha" : "stable"
+                        }
+                        FButton { text: qsTr("Check for updates"); onClicked: Farside.checkForUpdate(true) }
+                    }
+                    FText {
+                        Layout.fillWidth: true
+                        text: qsTr("Farside looks for a newer version when it starts and every six hours. A new version is fetched by itself and installed when you click Restart and update at the bottom of the window. This is version %1.").arg(Farside.version)
+                        color: shell.muted
+                        wrapMode: Text.WordWrap
+                    }
+                }
+            }
+
             Rectangle {
                 Layout.fillWidth: true
                 implicitHeight: diagnostics.implicitHeight + 40

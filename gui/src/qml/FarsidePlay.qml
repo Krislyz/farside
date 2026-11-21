@@ -378,11 +378,6 @@ Item {
                 focusPolicy: Qt.NoFocus
                 onClicked: root.showManualHostDialog()
             }
-            FButton {
-                text: qsTr("Stream settings")
-                focusPolicy: Qt.NoFocus
-                onClicked: root.showSettingsDialog()
-            }
         }
     }
 }

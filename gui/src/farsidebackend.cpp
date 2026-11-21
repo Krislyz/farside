@@ -74,6 +74,9 @@ FarsideBackend::FarsideBackend(QObject *parent) : QObject(parent), role_(detectR
 
 	// Updates: a look at GitHub shortly after the start and every six hours. Not in a sandboxed test run,
 	// and not when the stored switch farside/updates is false.
+	// A sandboxed test run always starts on stable and never stores the choice (as with "direct" above).
+	if(sandbox().isEmpty() && settings.value(QStringLiteral("farside/updateChannel")).toString() == QLatin1String("alpha"))
+		update_channel = QStringLiteral("alpha");
 	update_timer.setInterval(6 * 60 * 60 * 1000);
 	connect(&update_timer, &QTimer::timeout, this, [this] { checkForUpdate(); });
 	if(sandbox().isEmpty() && settings.value(QStringLiteral("farside/updates"), true).toBool())
@@ -436,6 +439,17 @@ void FarsideBackend::openFolder(const QString &folder)
 	QDesktopServices::openUrl(QUrl::fromLocalFile(folder));
 }
 
+void FarsideBackend::setUpdateChannel(const QString &channel)
+{
+	const QString wanted = channel == QLatin1String("alpha") ? QStringLiteral("alpha") : QStringLiteral("stable");
+	if(wanted == update_channel)
+		return;
+	update_channel = wanted;
+	if(sandbox().isEmpty())
+		QSettings().setValue(QStringLiteral("farside/updateChannel"), wanted);
+	emit updateChannelChanged();
+}
+
 void FarsideBackend::setUpdate(const Farside::Update &found, const QString &state)
 {
 	update = found;
@@ -466,12 +480,14 @@ void FarsideBackend::checkForUpdate(bool by_user)
 		setUpdate({}, outcome);
 		QTimer::singleShot(6000, this, [this, outcome] { if(update_state == outcome) setUpdate({}, QString()); });
 	};
-	QNetworkRequest ask(QUrl(QStringLiteral("https://api.github.com/repos/%1/releases/latest").arg(QLatin1String(Farside::update_repo))));
+	// The list, not "latest": GitHub's "latest" never is a pre-release, and the alpha channel wants those too.
+	QNetworkRequest ask(QUrl(QStringLiteral("https://api.github.com/repos/%1/releases?per_page=30").arg(QLatin1String(Farside::update_repo))));
 	ask.setRawHeader("Accept", "application/vnd.github+json");
 	ask.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("Farside"));
 	ask.setTransferTimeout(15000);
 	QNetworkReply *answer = net.get(ask);
-	connect(answer, &QNetworkReply::finished, this, [this, answer, waiting, answerUser] {
+	const bool alpha = update_channel == QLatin1String("alpha");
+	connect(answer, &QNetworkReply::finished, this, [this, answer, waiting, answerUser, alpha] {
 		answer->deleteLater();
 		// Another check got there first (an update is on its way, or the user's own check took over).
 		if(update_state != waiting)
@@ -479,7 +495,7 @@ void FarsideBackend::checkForUpdate(bool by_user)
 		// Offline, or GitHub is busy: the next look is in six hours or at the next start.
 		if(answer->error() != QNetworkReply::NoError)
 			return answerUser(QStringLiteral("failed"));
-		const Farside::Update found = Farside::pickUpdate(answer->readAll(), version(), QStringLiteral(FARSIDE_SETUP_NAME));
+		const Farside::Update found = Farside::pickUpdate(answer->readAll(), version(), QStringLiteral(FARSIDE_SETUP_NAME), alpha);
 		if(found.version.isEmpty())
 			return answerUser(QStringLiteral("current"));
 		fetchUpdate(found);

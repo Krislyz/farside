@@ -48,6 +48,7 @@ typedef struct chiaki_audio_receiver_t
 	// Farside: frames handed on since the last log line, and how many of them nobody had (concealed).
 	unsigned int frames_delivered;
 	unsigned int frames_concealed;
+	bool units_logged;
 } ChiakiAudioReceiver;
 
 CHIAKI_EXPORT ChiakiErrorCode chiaki_audio_receiver_init(ChiakiAudioReceiver *audio_receiver, struct chiaki_session_t *session, ChiakiPacketStats *packet_stats);

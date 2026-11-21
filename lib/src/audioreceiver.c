@@ -30,6 +30,7 @@ CHIAKI_EXPORT ChiakiErrorCode chiaki_audio_receiver_init(ChiakiAudioReceiver *au
 	audio_receiver->jitter_buffer_count = 0;
 	audio_receiver->frames_delivered = 0;
 	audio_receiver->frames_concealed = 0;
+	audio_receiver->units_logged = false;
 	memset(audio_receiver->jitter_buffer, 0, sizeof(audio_receiver->jitter_buffer));
 
 	ChiakiErrorCode err = chiaki_mutex_init(&audio_receiver->mutex, false);
@@ -119,6 +120,12 @@ CHIAKI_EXPORT void chiaki_audio_receiver_av_packet(ChiakiAudioReceiver *audio_re
 
 	if(packet->frame_index > (1 << 15))
 		audio_receiver->frame_index_startup = false;
+
+	if(!audio_receiver->units_logged && !packet->is_haptics)
+	{
+		audio_receiver->units_logged = true;
+		CHIAKI_LOGI(audio_receiver->log, "Audio packets carry %u frame(s) of their own and %u copies of earlier frames", source_units_count, fec_units_count);
+	}
 
 	// Farside: oldest frame first. The redundant units are copies of the frames before this packet's
 	// own. Taken first, a copy fills the gap that a lost or overtaken packet left. Taken after the

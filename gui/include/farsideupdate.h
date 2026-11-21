@@ -16,12 +16,15 @@ struct Update
 	qint64 size = 0;
 };
 
-// Reads GitHub's answer to "latest release" (api.github.com/repos/<update_repo>/releases/latest).
-// Gives the Setup program called asset when the release is newer than current, is a full release, and
+// Reads GitHub's list of releases (api.github.com/repos/<update_repo>/releases), or one release.
+// Gives the Setup program called asset of the newest release that is newer than current, for which
 // GitHub lists the file's SHA-256 and a download address inside update_repo. Anything else: an empty Update.
-Update pickUpdate(const QByteArray &json, const QString &current, const QString &asset);
+// Channels: "stable" takes full releases only; with alpha set, releases marked "pre-release" on GitHub
+// count too. Drafts never count. Versions are numbers separated by dots, of any length (0.1.5.1 is
+// newer than 0.1.5 and older than 0.1.6); a tag with anything else in it is not a version.
+Update pickUpdate(const QByteArray &json, const QString &current, const QString &asset, bool alpha = false);
 
-// Checks 50 to 57 of the self-test.
+// Checks 50 to 63 of the self-test.
 int selfTestUpdate();
 
 } // namespace Farside

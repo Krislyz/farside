@@ -260,6 +260,10 @@ class StreamSession : public QObject
 		size_t audio_out_ring_write_pos = 0;
 		size_t audio_out_ring_fill = 0;
 		bool audio_out_overflow_logged = false;
+		// Farside: how evenly sound arrives, summed up in the log every 30 seconds (see PushAudioFrame).
+		uint64_t audio_timing_last_us = 0;
+		unsigned int audio_timing_frames = 0, audio_timing_late = 0, audio_timing_longest_ms = 0;
+		unsigned int audio_timing_empty = 0, audio_timing_queue_max_ms = 0;
 		QMutex audio_out_drain_mutex;
 		QWaitCondition audio_out_drain_wait;
 		QThread *audio_out_drain_thread = nullptr;

@@ -8,17 +8,19 @@
 
 namespace Farside {
 
-Update pickUpdate(const QByteArray &json, const QString &current, const QString &asset)
+// One release as GitHub describes it: its Setup program called asset, or an empty Update when the
+// release is a draft, is no version, or its file is not listed with a hash and a download address here.
+static Update readRelease(const QJsonObject &release, const QString &asset, bool *prerelease)
 {
-	const QJsonObject release = QJsonDocument::fromJson(json).object();
-	if(release.value(QStringLiteral("draft")).toBool() || release.value(QStringLiteral("prerelease")).toBool())
+	if(release.value(QStringLiteral("draft")).toBool())
 		return {};
+	*prerelease = release.value(QStringLiteral("prerelease")).toBool();
 	QString tag = release.value(QStringLiteral("tag_name")).toString();
 	if(tag.startsWith(QLatin1Char('v')))
 		tag.remove(0, 1);
 	qsizetype read = 0;
 	const QVersionNumber found = QVersionNumber::fromString(tag, &read);
-	if(found.isNull() || read != tag.size() || QVersionNumber::compare(found, QVersionNumber::fromString(current)) <= 0)
+	if(found.isNull() || read != tag.size())
 		return {};
 	const QString releases = QStringLiteral("https://github.com/%1/releases/download/").arg(QLatin1String(update_repo));
 	for(const QJsonValue &entry : release.value(QStringLiteral("assets")).toArray())
@@ -35,6 +37,29 @@ Update pickUpdate(const QByteArray &json, const QString &current, const QString 
 		return u;
 	}
 	return {};
+}
+
+Update pickUpdate(const QByteArray &json, const QString &current, const QString &asset, bool alpha)
+{
+	const QJsonDocument answer = QJsonDocument::fromJson(json);
+	const QJsonArray releases = answer.isArray() ? answer.array() : QJsonArray { answer.object() };
+	// The newest one that counts on this channel; GitHub's order is by date, not by version.
+	Update best;
+	QVersionNumber newest = QVersionNumber::fromString(current);
+	for(const QJsonValue &entry : releases)
+	{
+		bool prerelease = false;
+		const Update u = readRelease(entry.toObject(), asset, &prerelease);
+		if(u.version.isEmpty() || (prerelease && !alpha))
+			continue;
+		const QVersionNumber version = QVersionNumber::fromString(u.version);
+		if(QVersionNumber::compare(version, newest) > 0)
+		{
+			newest = version;
+			best = u;
+		}
+	}
+	return best;
 }
 
 int selfTestUpdate()
@@ -80,6 +105,37 @@ int selfTestUpdate()
 	// 57: versions compare as numbers (0.10.0 is newer than 0.9.0), with or without the "v".
 	if(pickUpdate(release(QStringLiteral("0.10.0"), digest, good_url), QStringLiteral("0.9.0"), name).version != QLatin1String("0.10.0"))
 		return 57;
+
+	// The list of releases, as the channels see it: 0.2.0 full, 0.3.0 pre-release, 0.4.0 draft.
+	auto listed = [&](const QString &tag, bool pre, bool draft) {
+		QJsonObject r = QJsonDocument::fromJson(release(tag, digest, good_url, pre)).object();
+		r.insert(QStringLiteral("draft"), draft);
+		return r;
+	};
+	const QByteArray list = QJsonDocument(QJsonArray { listed(QStringLiteral("v0.4.0"), false, true), listed(QStringLiteral("v0.3.0"), true, false),
+		listed(QStringLiteral("v0.2.0"), false, false), listed(QStringLiteral("v0.1.0"), false, false) }).toJson();
+	// 58: the stable channel takes the newest full release and passes over the pre-release.
+	if(pickUpdate(list, QStringLiteral("0.1.0"), name).version != QLatin1String("0.2.0"))
+		return 58;
+	// 59: the alpha channel takes the pre-release when it is the newest.
+	if(pickUpdate(list, QStringLiteral("0.1.0"), name, true).version != QLatin1String("0.3.0"))
+		return 59;
+	// 60: a draft is never offered, on either channel.
+	if(pickUpdate(list, QStringLiteral("0.3.0"), name, true).version != QString() || pickUpdate(list, QStringLiteral("0.2.0"), name).version != QString())
+		return 60;
+	// 61: on alpha, a full release newer than every pre-release is taken too (the order in the list does not matter).
+	const QByteArray list2 = QJsonDocument(QJsonArray { listed(QStringLiteral("v0.2.0"), true, false), listed(QStringLiteral("v0.5.0"), false, false) }).toJson();
+	if(pickUpdate(list2, QStringLiteral("0.1.0"), name, true).version != QLatin1String("0.5.0"))
+		return 61;
+	// 62: versions of four numbers: 0.1.5.1 is newer than 0.1.5 and older than 0.1.6.
+	if(pickUpdate(release(QStringLiteral("v0.1.5.1"), digest, good_url), QStringLiteral("0.1.5"), name).version != QLatin1String("0.1.5.1")
+		|| !pickUpdate(release(QStringLiteral("v0.1.5.1"), digest, good_url), QStringLiteral("0.1.6"), name).version.isEmpty()
+		|| pickUpdate(release(QStringLiteral("v0.1.6"), digest, good_url), QStringLiteral("0.1.5.1"), name).version != QLatin1String("0.1.6"))
+		return 62;
+	// 63: a single pre-release (not a list) is taken on alpha only.
+	if(pickUpdate(release(QStringLiteral("v0.2.0"), digest, good_url, true), QStringLiteral("0.1.0"), name, true).version != QLatin1String("0.2.0")
+		|| !pickUpdate(release(QStringLiteral("v0.2.0"), digest, good_url, true), QStringLiteral("0.1.0"), name).version.isEmpty())
+		return 63;
 	return 0;
 }
 

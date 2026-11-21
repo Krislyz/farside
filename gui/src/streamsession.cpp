@@ -1963,6 +1963,33 @@ void StreamSession::PushAudioFrame(int16_t *og_buf, size_t samples_count)
 
 	QByteArray buf((int)(samples_count * audio_out_sample_size), 0);
 
+	// Farside: sound comes as one frame every 10 ms. Over the internet frames can come late and in
+	// bunches; the player then has nothing to play for a moment, which nothing else records. Every 30
+	// seconds (3000 frames) one line says how uneven it was, if it was.
+	{
+		const uint64_t now_us = chiaki_time_now_monotonic_us();
+		const unsigned int waiting_ms = (unsigned int)((uint64_t)SDL_GetQueuedAudioSize(audio_out) * 1000 / (audio_out_sample_size * 48000));
+		if(audio_timing_last_us)
+		{
+			const unsigned int since_ms = (unsigned int)((now_us - audio_timing_last_us) / 1000);
+			if(since_ms > 30)
+				audio_timing_late++;
+			audio_timing_longest_ms = qMax(audio_timing_longest_ms, since_ms);
+			// Nothing was waiting to be played when this frame came: the player had run out.
+			if(waiting_ms == 0 && since_ms > 15)
+				audio_timing_empty++;
+		}
+		audio_timing_last_us = now_us;
+		audio_timing_queue_max_ms = qMax(audio_timing_queue_max_ms, waiting_ms);
+		if(++audio_timing_frames >= 3000)
+		{
+			if(audio_timing_late || audio_timing_empty)
+				CHIAKI_LOGW(log.GetChiakiLog(), "Audio timing: %u of the last %u frames came more than 30 ms after the one before (longest wait %u ms); the player had run out %u times; most sound waiting %u ms",
+					audio_timing_late, audio_timing_frames, audio_timing_longest_ms, audio_timing_empty, audio_timing_queue_max_ms);
+			audio_timing_frames = audio_timing_late = audio_timing_longest_ms = audio_timing_empty = audio_timing_queue_max_ms = 0;
+		}
+	}
+
 	// qDebug() << "Audio queue" << (SDL_GetQueuedAudioSize(audio_out) / audio_out_sample_size / samples_count) * 10 << "ms";
 	// If the SDL queue runs away, drop the stale backlog and resume from the latest frame.
 	if(SDL_GetQueuedAudioSize(audio_out) > 3 * audio_buffer_size)

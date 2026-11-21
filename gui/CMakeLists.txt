@@ -175,7 +175,7 @@ set_target_properties(chiaki PROPERTIES OUTPUT_NAME Farside)
 # Farside: the version the updater compares with the newest GitHub release (tag v<version>), and the
 # name of the Setup program it fetches from that release. Farside Host is this target, chiaki.
 # (A test of the updater builds an older number: -DFARSIDE_VERSION=0.0.1.)
-set(FARSIDE_VERSION 0.1.4 CACHE STRING "Version of Farside Host and Farside Client")
+set(FARSIDE_VERSION 0.1.5 CACHE STRING "Version of Farside Host and Farside Client")
 target_compile_definitions(chiaki PRIVATE FARSIDE_VERSION="${FARSIDE_VERSION}" FARSIDE_SETUP_NAME="FarsideHost-Setup.exe")
 
 # Farside Client: the program for the PCs played from. It pairs with a Farside Host and shares this PC's
@@ -183,7 +183,14 @@ target_compile_definitions(chiaki PRIVATE FARSIDE_VERSION="${FARSIDE_VERSION}" F
 find_package(OpenSSL REQUIRED)
 set(FARSIDE_CLIENT_RC "")
 if(WIN32)
-	string(REPLACE "." "," FARSIDE_VERSION_COMMA ${FARSIDE_VERSION})
+	# Windows wants four numbers: 0.1.5 becomes 0,1,5,0 and 0.1.5.1 becomes 0,1,5,1.
+	string(REPLACE "." ";" FARSIDE_VERSION_PARTS ${FARSIDE_VERSION})
+	list(LENGTH FARSIDE_VERSION_PARTS FARSIDE_VERSION_LENGTH)
+	while(FARSIDE_VERSION_LENGTH LESS 4)
+		list(APPEND FARSIDE_VERSION_PARTS 0)
+		list(LENGTH FARSIDE_VERSION_PARTS FARSIDE_VERSION_LENGTH)
+	endwhile()
+	list(JOIN FARSIDE_VERSION_PARTS "," FARSIDE_VERSION_COMMA)
 	configure_file(${CMAKE_CURRENT_SOURCE_DIR}/farsideclient.rc.in ${CMAKE_CURRENT_SOURCE_DIR}/farsideclient.rc @ONLY)
 	set(FARSIDE_CLIENT_RC farsideclient.rc)
 endif()

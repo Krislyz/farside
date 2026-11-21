@@ -1,6 +1,6 @@
 1 VERSIONINFO
- FILEVERSION @FARSIDE_VERSION_COMMA@,0
- PRODUCTVERSION @FARSIDE_VERSION_COMMA@,0
+ FILEVERSION @FARSIDE_VERSION_COMMA@
+ PRODUCTVERSION @FARSIDE_VERSION_COMMA@
  FILEFLAGSMASK 0x17L
  FILEFLAGS 0x0L
  FILEOS 0x4L
@@ -13,12 +13,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Moonthia"
             VALUE "FileDescription", "Farside Client"
-            VALUE "FileVersion", "@FARSIDE_VERSION@.0\0"
+            VALUE "FileVersion", "@FARSIDE_VERSION@\0"
             VALUE "InternalName", "FarsideClient"
             VALUE "LegalCopyright", "AGPLv3. Farside: Moonthia 2026"
             VALUE "OriginalFilename", "FarsideClient.exe"
             VALUE "ProductName", "Farside Client"
-            VALUE "ProductVersion", "@FARSIDE_VERSION@.0\0"
+            VALUE "ProductVersion", "@FARSIDE_VERSION@\0"
         END
     END
     BLOCK "VarFileInfo"
