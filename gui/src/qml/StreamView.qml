@@ -529,6 +529,17 @@ Item {
                 onClicked: Chiaki.window.toggleFullscreen()
             }
 
+            // Ends the stream from the bar, so there is no need to leave fullscreen and close the window.
+            // It does what the window's close button does during a stream: asks about sleep mode, or
+            // follows the "Action on Disconnect" setting.
+            FButton {
+                text: qsTr("Disconnect")
+                font.pixelSize: 13
+                implicitHeight: 36
+                focusPolicy: Qt.NoFocus
+                onClicked: Chiaki.closeRequested()
+            }
+
             FButton {
                 text: "▴"
                 implicitHeight: 36

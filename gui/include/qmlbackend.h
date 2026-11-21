@@ -164,7 +164,8 @@ public:
 
     void checkNickname(QString nickname);
 
-    bool closeRequested();
+    // Farside: also behind the Disconnect button of the stream bar.
+    Q_INVOKABLE bool closeRequested();
 
     void setAllowJoystickBackgroundEvents();
 

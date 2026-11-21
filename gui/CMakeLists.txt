@@ -175,7 +175,7 @@ set_target_properties(chiaki PROPERTIES OUTPUT_NAME Farside)
 # Farside: the version the updater compares with the newest GitHub release (tag v<version>), and the
 # name of the Setup program it fetches from that release. Farside Host is this target, chiaki.
 # (A test of the updater builds an older number: -DFARSIDE_VERSION=0.0.1.)
-set(FARSIDE_VERSION 0.1.3 CACHE STRING "Version of Farside Host and Farside Client")
+set(FARSIDE_VERSION 0.1.4 CACHE STRING "Version of Farside Host and Farside Client")
 target_compile_definitions(chiaki PRIVATE FARSIDE_VERSION="${FARSIDE_VERSION}" FARSIDE_SETUP_NAME="FarsideHost-Setup.exe")
 
 # Farside Client: the program for the PCs played from. It pairs with a Farside Host and shares this PC's

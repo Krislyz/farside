@@ -28,6 +28,8 @@ CHIAKI_EXPORT ChiakiErrorCode chiaki_audio_receiver_init(ChiakiAudioReceiver *au
 	audio_receiver->playback_started = false;
 	audio_receiver->frame_index_startup = true;
 	audio_receiver->jitter_buffer_count = 0;
+	audio_receiver->frames_delivered = 0;
+	audio_receiver->frames_concealed = 0;
 	memset(audio_receiver->jitter_buffer, 0, sizeof(audio_receiver->jitter_buffer));
 
 	ChiakiErrorCode err = chiaki_mutex_init(&audio_receiver->mutex, false);
@@ -118,8 +120,14 @@ CHIAKI_EXPORT void chiaki_audio_receiver_av_packet(ChiakiAudioReceiver *audio_re
 	if(packet->frame_index > (1 << 15))
 		audio_receiver->frame_index_startup = false;
 
-	for(size_t i = 0; i < source_units_count + fec_units_count; i++)
+	// Farside: oldest frame first. The redundant units are copies of the frames before this packet's
+	// own. Taken first, a copy fills the gap that a lost or overtaken packet left. Taken after the
+	// packet's own frame (as it was), the gap had already been concealed by then (the decoder invents
+	// the frame, heard as warbling) and the copy was thrown away unused.
+	size_t units_count = (size_t)source_units_count + fec_units_count;
+	for(size_t n = 0; n < units_count; n++)
 	{
+		size_t i = n < fec_units_count ? source_units_count + n : n - fec_units_count;
 		ChiakiSeqNum16 frame_index;
 		if(i < source_units_count)
 			frame_index = packet->frame_index + i;
@@ -242,6 +250,7 @@ static void chiaki_audio_receiver_frame(ChiakiAudioReceiver *audio_receiver, Chi
 					deliver_buf_size = 0;
 					audio_receiver->frame_index_prev = audio_receiver->next_frame_index;
 					audio_receiver->next_frame_index++;
+					audio_receiver->frames_concealed++;
 				}
 			}
 		}
@@ -258,6 +267,16 @@ unlock_and_exit:
 
 		if(!frame_cb)
 			return;
+
+		// Farside: every 30 seconds of sound (3000 frames), one line if any frame had to be invented.
+		if(++audio_receiver->frames_delivered >= 3000)
+		{
+			if(audio_receiver->frames_concealed)
+				CHIAKI_LOGW(audio_receiver->log, "Audio: %u of the last %u frames never arrived and were concealed",
+					audio_receiver->frames_concealed, audio_receiver->frames_delivered);
+			audio_receiver->frames_delivered = 0;
+			audio_receiver->frames_concealed = 0;
+		}
 
 		frame_cb(deliver_buf, deliver_buf_size, frame_cb_user);
 		if(deliver_owned_buf)
