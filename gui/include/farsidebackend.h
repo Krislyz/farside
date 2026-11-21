@@ -65,7 +65,8 @@ class FarsideBackend : public QObject
 	// { usbip, usbipd, tunnel }: whether each helper program was found. Refreshed by refreshTools().
 	Q_PROPERTY(QVariantMap tools READ tools NOTIFY toolsChanged)
 	// This program's version, and the newer one that waits (empty: none) with how far it is:
-	// "downloading", or "ready" (installUpdate() works now).
+	// "downloading", or "ready" (installUpdate() works now). After a check the user asked for,
+	// updateState is "checking", then for a few seconds "current" (nothing newer) or "failed".
 	Q_PROPERTY(QString version READ version CONSTANT)
 	Q_PROPERTY(QString updateVersion READ updateVersion NOTIFY updateChanged)
 	Q_PROPERTY(QString updateState READ updateState NOTIFY updateChanged)
@@ -121,8 +122,9 @@ class FarsideBackend : public QObject
 		Q_INVOKABLE void openFolder(const QString &folder);
 		Q_INVOKABLE QString logFolder() const;
 		// Asks GitHub for a newer release and fetches its Setup program. Runs by itself after the start
-		// and every six hours; never restarts anything.
-		Q_INVOKABLE void checkForUpdate();
+		// and every six hours; never restarts anything. by_user: the user clicked "Check for updates",
+		// so the outcome is shown (see updateState) even when there is nothing newer.
+		Q_INVOKABLE void checkForUpdate(bool by_user = false);
 		// Ends this program and starts the fetched Setup program, which installs and starts it again.
 		Q_INVOKABLE void installUpdate();
 		// Client: has usbipd-win share the DualSense that is plugged in. Windows asks for administrator rights.

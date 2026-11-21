@@ -75,11 +75,11 @@ FarsideBackend::FarsideBackend(QObject *parent) : QObject(parent), role_(detectR
 	// Updates: a look at GitHub shortly after the start and every six hours. Not in a sandboxed test run,
 	// and not when the stored switch farside/updates is false.
 	update_timer.setInterval(6 * 60 * 60 * 1000);
-	connect(&update_timer, &QTimer::timeout, this, &FarsideBackend::checkForUpdate);
+	connect(&update_timer, &QTimer::timeout, this, [this] { checkForUpdate(); });
 	if(sandbox().isEmpty() && settings.value(QStringLiteral("farside/updates"), true).toBool())
 	{
 		update_timer.start();
-		QTimer::singleShot(10000, this, &FarsideBackend::checkForUpdate);
+		QTimer::singleShot(10000, this, [this] { checkForUpdate(); });
 	}
 
 	code_timer.setInterval(1000);
@@ -450,25 +450,42 @@ static QByteArray fileSha256(const QString &path)
 	return file.open(QIODevice::ReadOnly) && hash.addData(&file) ? hash.result() : QByteArray();
 }
 
-void FarsideBackend::checkForUpdate()
+void FarsideBackend::checkForUpdate(bool by_user)
 {
 #ifdef Q_OS_WIN
-	if(!sandbox().isEmpty() || !update_state.isEmpty())
+	// A sandboxed test run asks GitHub only when the check is asked for.
+	if((!sandbox().isEmpty() && !by_user) || !update_state.isEmpty())
 		return;
+	const QString waiting = by_user ? QStringLiteral("checking") : QString();
+	if(by_user)
+		setUpdate({}, waiting);
+	// What a check the user asked for ended with, shown for six seconds.
+	auto answerUser = [this, by_user](const QString &outcome) {
+		if(!by_user)
+			return;
+		setUpdate({}, outcome);
+		QTimer::singleShot(6000, this, [this, outcome] { if(update_state == outcome) setUpdate({}, QString()); });
+	};
 	QNetworkRequest ask(QUrl(QStringLiteral("https://api.github.com/repos/%1/releases/latest").arg(QLatin1String(Farside::update_repo))));
 	ask.setRawHeader("Accept", "application/vnd.github+json");
 	ask.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("Farside"));
 	ask.setTransferTimeout(15000);
 	QNetworkReply *answer = net.get(ask);
-	connect(answer, &QNetworkReply::finished, this, [this, answer] {
+	connect(answer, &QNetworkReply::finished, this, [this, answer, waiting, answerUser] {
 		answer->deleteLater();
-		// Offline, or GitHub is busy: the next look is in six hours or at the next start.
-		if(answer->error() != QNetworkReply::NoError || !update_state.isEmpty())
+		// Another check got there first (an update is on its way, or the user's own check took over).
+		if(update_state != waiting)
 			return;
+		// Offline, or GitHub is busy: the next look is in six hours or at the next start.
+		if(answer->error() != QNetworkReply::NoError)
+			return answerUser(QStringLiteral("failed"));
 		const Farside::Update found = Farside::pickUpdate(answer->readAll(), version(), QStringLiteral(FARSIDE_SETUP_NAME));
-		if(!found.version.isEmpty())
-			fetchUpdate(found);
+		if(found.version.isEmpty())
+			return answerUser(QStringLiteral("current"));
+		fetchUpdate(found);
 	});
+#else
+	Q_UNUSED(by_user);
 #endif
 }
 

@@ -9,6 +9,7 @@
 
 #include <QGuiApplication>
 #include <QIcon>
+#include <QMouseEvent>
 #include <QQmlApplicationEngine>
 #include <QQuickWindow>
 #include <QTimer>
@@ -59,13 +60,26 @@ int main(int argc, char *argv[])
 		return 1;
 
 	// For checking the pages where no window may be shown (a sandboxed run only, see farsidebackend.h):
-	// FARSIDE_SHOT=<file.png> saves a picture of the window after 3 seconds and ends the program;
-	// FARSIDE_SHOT_TAB=<0|1|2> picks the tab first.
+	// FARSIDE_SHOT=<file.png> saves a picture of the window after 3 seconds (or FARSIDE_SHOT_MS) and ends
+	// the program; FARSIDE_SHOT_TAB=<0|1|2> picks the tab first; FARSIDE_SHOT_CLICK=<x>,<y> clicks at that
+	// point of the window after 1 second.
 	if(const QString shot = qEnvironmentVariable("FARSIDE_SHOT"); !shot.isEmpty() && qEnvironmentVariableIsSet("FARSIDE_SANDBOX"))
 	{
 		auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().constFirst());
 		window->setProperty("tab", qEnvironmentVariableIntValue("FARSIDE_SHOT_TAB"));
-		QTimer::singleShot(3000, &app, [window, shot] {
+		const QStringList at = qEnvironmentVariable("FARSIDE_SHOT_CLICK").split(QLatin1Char(','));
+		if(at.size() == 2)
+			QTimer::singleShot(1000, &app, [window, at] {
+				const QPointF point(at[0].toDouble(), at[1].toDouble());
+				for(const QEvent::Type type : { QEvent::MouseButtonPress, QEvent::MouseButtonRelease })
+				{
+					QMouseEvent click(type, point, window->mapToGlobal(point), Qt::LeftButton,
+						type == QEvent::MouseButtonPress ? Qt::LeftButton : Qt::NoButton, Qt::NoModifier);
+					QCoreApplication::sendEvent(window, &click);
+				}
+			});
+		const int shot_ms = qEnvironmentVariableIntValue("FARSIDE_SHOT_MS");
+		QTimer::singleShot(shot_ms > 0 ? shot_ms : 3000, &app, [window, shot] {
 			window->grabWindow().save(shot);
 			QCoreApplication::quit();
 		});
