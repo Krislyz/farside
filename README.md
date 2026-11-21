@@ -70,7 +70,8 @@ To switch the check off, set the registry value `HKCU\Software\Chiaki\Chiaki\far
 
 Windows (MSYS2 MINGW64):
 
-1. Set up the build the way chiaki-ng does: the steps of `.github/workflows/build-msys2.yml`
+1. Set up the build the way chiaki-ng 1.10.1 does: the steps of its
+   [`build-msys2.yml`](https://github.com/streetpea/chiaki-ng/blob/v1.10.1/.github/workflows/build-msys2.yml)
    (MSYS2 packages, libplacebo, FFmpeg, sdl2-compat, hidapi).
 2. Build [zxing-cpp](https://github.com/zxing-cpp/zxing-cpp) 3.1.1 as a static library into `/mingw64`
    (`-DBUILD_SHARED_LIBS=OFF -DZXING_READERS=ON -DZXING_WRITERS=OLD -DZXING_C_API=OFF -DZXING_EXAMPLES=OFF -DZXING_DEPENDENCIES=LOCAL`).
