@@ -8,6 +8,9 @@
 #include <QLoggingCategory>
 #include <QStandardPaths>
 #include <QFileDialog>
+#include <QWindow>
+#include <QDir>
+#include <QSettings>
 #include <QApplication>
 #include <QCoreApplication>
 #include <QProcess>
@@ -2066,13 +2069,39 @@ void QmlSettings::importSettings()
     refreshAllKeys();
 }
 
+QString QmlSettings::defaultSteamBasePath() const
+{
+#ifdef Q_OS_WIN
+    // Steam writes its folder here; without that entry, the folder it installs to unless told otherwise.
+    const QString steam = QSettings(QStringLiteral("HKEY_CURRENT_USER\\Software\\Valve\\Steam"), QSettings::NativeFormat)
+        .value(QStringLiteral("SteamPath")).toString();
+    return QDir::toNativeSeparators(!steam.isEmpty() && QDir(steam).exists() ? QDir(steam).absolutePath() : QStringLiteral("C:/Program Files (x86)/Steam"));
+#else
+    return QString();
+#endif
+}
+
 QString QmlSettings::chooseSteamBasePath()
 {
-    QString fileName = QFileDialog::getExistingDirectory(QApplication::focusWidget(), tr("Choose Steam Base Path"),
-                                                    QStandardPaths::writableLocation(QStandardPaths::DownloadLocation),
-                                                    QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks | QFileDialog::DontUseNativeDialog);
-    printf("Chosen filename: %s", fileName.toUtf8().constData());
-    return fileName;
+    // Farside: one dialog at a time. A double click on the button used to open a second one under the first.
+    static bool open = false;
+    if(open)
+        return QString();
+    open = true;
+    QFileDialog dialog(nullptr, tr("Choose the Steam folder"), defaultSteamBasePath());
+    dialog.setFileMode(QFileDialog::Directory);
+    dialog.setOptions(QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+#ifndef Q_OS_WIN
+    dialog.setOption(QFileDialog::DontUseNativeDialog);
+#endif
+    // This program's window is not a widget, so the dialog has no parent. Without an owner it opens
+    // where Windows likes (another screen) and stays behind when the window is brought forward.
+    dialog.winId();
+    if(QWindow *owner = QGuiApplication::focusWindow())
+        dialog.windowHandle()->setTransientParent(owner);
+    const QString chosen = dialog.exec() == QDialog::Accepted ? dialog.selectedFiles().value(0) : QString();
+    open = false;
+    return chosen;
 }
 
 void QmlSettings::exportPlaceboSettings()

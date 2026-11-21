@@ -604,6 +604,8 @@ public:
     Q_INVOKABLE void clearKeyMapping();
     Q_INVOKABLE void exportSettings();
     Q_INVOKABLE QString chooseSteamBasePath();
+    // Farside: where Steam is installed on this PC; empty where the Steam tools find it themselves.
+    Q_INVOKABLE QString defaultSteamBasePath() const;
     Q_INVOKABLE void exportPlaceboSettings();
     Q_INVOKABLE void importSettings();
     Q_INVOKABLE void importPlaceboSettings();

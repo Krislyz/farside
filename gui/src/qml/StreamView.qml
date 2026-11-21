@@ -471,8 +471,9 @@ Item {
                 font.pixelSize: 13
                 focusPolicy: Qt.NoFocus
                 Material.accent: farsideBar.accent
-                // A new resolution puts the bitrate back on automatic, as chiaki-ng's Settings does.
-                onActivated: (index) => farsideBar.store(index + 1, Chiaki.settings.fpsLocalPS5, 0)
+                // A bitrate the user chose stays when the resolution changes. On automatic (0) the
+                // bitrate follows the new resolution by itself.
+                onActivated: (index) => farsideBar.store(index + 1, Chiaki.settings.fpsLocalPS5, Chiaki.settings.bitrateLocalPS5)
             }
 
             C.ComboBox {

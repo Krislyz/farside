@@ -42,7 +42,7 @@ DialogView {
                 logDialog.standardButtons = Dialog.Close;
                 opening = false;
             }
-        }, shortcutGrid.steamBasePath);
+        }, shortcutGrid.steamBasePath || Chiaki.settings.defaultSteamBasePath());
     }
 
     Item {
@@ -83,13 +83,15 @@ DialogView {
 
             Label {
                 Layout.alignment: Qt.AlignRight
-                text: qsTr("Custom Steam Base Path (Optional)")
+                text: qsTr("Steam folder")
             }
 
             Label {
                 Layout.alignment: Qt.AlignRight
                 Layout.preferredWidth: 400
-                text: shortcutGrid.steamBasePath
+                // The folder Steam is installed in is found by itself; choosing one is only for an unusual setup.
+                text: shortcutGrid.steamBasePath || Chiaki.settings.defaultSteamBasePath() || qsTr("Found automatically")
+                elide: Text.ElideMiddle
             }
 
             Label {
@@ -97,9 +99,11 @@ DialogView {
 
             C.Button {
                 id: choosePathButton
-                text: qsTr("Choose new steam base path")
+                text: qsTr("Choose another folder")
                 onClicked: {
-                    shortcutGrid.steamBasePath = Chiaki.settings.chooseSteamBasePath();
+                    const chosen = Chiaki.settings.chooseSteamBasePath();
+                    if (chosen)
+                        shortcutGrid.steamBasePath = chosen;
                 }
                 Material.roundedScale: Material.SmallScale
             }
