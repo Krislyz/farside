@@ -27,7 +27,9 @@ Item {
     // A Client only shares its controller; it has no Play page.
     readonly property bool isClient: Farside.role === "client"
     property string page: isClient ? "remote" : "play"
-    readonly property real u: Math.max(0.75, Math.min(1.2, width / 1120, height / 700))
+    // The frame is drawn at the size chosen under Settings, "Text size" (0.9 unless changed); a window too
+    // small for the boards (1120 x 700) shrinks it further.
+    readonly property real u: Math.max(Math.min(0.75, options.textSize), Math.min(options.textSize, width / 1120, height / 700))
     property alias options: options
 
     function showPage(name) {
@@ -46,6 +48,7 @@ Item {
         category: "farside"
         property bool debugMs: false
         property bool hudResponse: false
+        property real textSize: 0.9
     }
 
     Rectangle {

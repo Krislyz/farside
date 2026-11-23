@@ -306,6 +306,7 @@ StreamSessionConnectInfo::StreamSessionConnectInfo(
 	this->mouse_touch_enabled = settings->GetMouseTouchEnabled();
 	this->enable_keyboard = false;
 	this->enable_dualsense = true;
+	this->frame_timing = settings->GetShowStreamStats();
 	this->enable_idr_on_fec_failure = settings->GetIDROnFECFailureEnabled();
 	this->rumble_haptics_intensity = settings->GetRumbleHapticsIntensity();
 	this->buttons_by_pos = settings->GetButtonsByPosition();
@@ -475,6 +476,7 @@ StreamSession::StreamSession(const StreamSessionConnectInfo &connect_info, QObje
 	chiaki_connect_info.enable_keyboard = false;
 	chiaki_connect_info.enable_idr_on_fec_failure = connect_info.enable_idr_on_fec_failure;
 	chiaki_connect_info.enable_dualsense = connect_info.enable_dualsense;
+	chiaki_connect_info.frame_timing = connect_info.frame_timing;
 	chiaki_connect_info.packet_loss_max = connect_info.packet_loss_max;
 	chiaki_connect_info.auto_regist = connect_info.auto_regist;
 	chiaki_connect_info.audio_video_disabled = connect_info.audio_video_disabled;
@@ -1975,6 +1977,7 @@ void StreamSession::PushAudioFrame(int16_t *og_buf, size_t samples_count)
 			ring_waiting = audio_out_ring_fill;
 		}
 		const unsigned int waiting_ms = (unsigned int)(((uint64_t)SDL_GetQueuedAudioSize(audio_out) + ring_waiting) * 1000 / (audio_out_sample_size * 48000));
+		audio_waiting_ms.storeRelaxed((int)waiting_ms);
 		if(audio_timing_last_us)
 		{
 			const unsigned int since_ms = (unsigned int)((now_us - audio_timing_last_us) / 1000);

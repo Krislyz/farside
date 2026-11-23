@@ -50,6 +50,13 @@ struct chiaki_ffmpeg_decoder_t
 	double synthetic_candidate_duration_us;
 	uint64_t synthetic_last_sample_time_us;
 	uint8_t synthetic_candidate_count;
+	// Farside: for the graph in the stream. From handing a picture to the decoder to pulling that same
+	// picture out (matched by its number, since a decoder may hand pictures back later). With hardware
+	// decoding this is the hand-over to the graphics card, not the card's own work.
+	int64_t farside_sent_pts[16];
+	uint64_t farside_sent_us[16];
+	unsigned int farside_sent_count;
+	float farside_decode_ms; // -1 until the first picture came out
 };
 
 CHIAKI_EXPORT ChiakiErrorCode chiaki_ffmpeg_decoder_init(ChiakiFfmpegDecoder *decoder, ChiakiLog *log,

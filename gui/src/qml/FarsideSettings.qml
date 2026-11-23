@@ -1,4 +1,6 @@
-// Settings page: the switches that are for looking into problems, not for playing.
+// Settings page. A change waits until "Save changes" in the bar at the bottom; "Reset" or leaving the
+// page drops it.
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Templates as T
@@ -6,10 +8,109 @@ import QtQuick.Templates as T
 import org.streetpea.chiaking
 
 Item {
-    // Taller than a small window, so the page scrolls (mouse wheel, or drag the bar at the right).
+    id: page
+
+    // The changes that wait: name of the setting -> new value.
+    property var pending: ({})
+    readonly property bool dirty: Object.keys(pending).length > 0
+    // Every setting of this page: how to read what is stored and how to store.
+    readonly property var fields: ({
+        updateChannel: { get: () => Farside.updateChannel, set: (v) => Farside.updateChannel = v },
+        textSize: { get: () => shell.options.textSize, set: (v) => shell.options.textSize = v },
+        logEnabled: { get: () => Farside.logEnabled, set: (v) => Farside.logEnabled = v },
+        debugMs: { get: () => shell.options.debugMs, set: (v) => shell.options.debugMs = v },
+        // The same order as ChiakiWindow.VideoPreset; the second line applies it to a running stream too.
+        videoPreset: { get: () => Chiaki.settings.videoPreset, set: (v) => { Chiaki.settings.videoPreset = v; Chiaki.window.videoPreset = v; } },
+        placeboUpscaler: { get: () => Chiaki.settings.placeboUpscaler, set: (v) => Chiaki.settings.placeboUpscaler = v },
+        placeboFrameMixer: { get: () => Chiaki.settings.placeboFrameMixer, set: (v) => Chiaki.settings.placeboFrameMixer = v },
+        placeboDebandEnabled: { get: () => Chiaki.settings.placeboDebandEnabled, set: (v) => Chiaki.settings.placeboDebandEnabled = v },
+        hudResponse: { get: () => shell.options.hudResponse, set: (v) => shell.options.hudResponse = v },
+        showStreamStats: { get: () => Chiaki.settings.showStreamStats, set: (v) => Chiaki.settings.showStreamStats = v },
+        logVerbose: { get: () => Chiaki.settings.logVerbose, set: (v) => Chiaki.settings.logVerbose = v }
+    })
+
+    // What the page shows for a setting: the waiting change, or else what is stored.
+    function value(key) {
+        return key in pending ? pending[key] : fields[key].get();
+    }
+
+    function change(key, v) {
+        let next = Object.assign({}, pending);
+        if (v === fields[key].get())
+            delete next[key];
+        else
+            next[key] = v;
+        pending = next;
+    }
+
+    function save() {
+        const done = pending;
+        pending = ({});
+        for (const key in done)
+            fields[key].set(done[key]);
+    }
+
+    function reset() {
+        pending = ({});
+    }
+
+    onVisibleChanged: if (!visible) reset()
+
+    component Card: Rectangle {
+        default property alias body: column.data
+        property alias title: heading.text
+
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        implicitHeight: column.implicitHeight + 40
+        radius: 14
+        color: shell.card
+        border.color: shell.line
+
+        ColumnLayout {
+            id: column
+            x: 22
+            y: 20
+            width: parent.width - 44
+            spacing: 14
+
+            FText { id: heading; font.pixelSize: 15; font.weight: Font.DemiBold }
+        }
+    }
+
+    // A tick box and a picker that show page.value(key) and hand a change to page.change(key, ...).
+    // A click breaks the binding of the control, so it is set again each time.
+    component Tick: FCheck {
+        required property string key
+
+        checked: page.value(key)
+        onToggled: {
+            page.change(key, checked);
+            checked = Qt.binding(() => page.value(key));
+        }
+    }
+
+    component Pick: FCombo {
+        id: pick
+        required property string key
+        // What each entry stands for; without it, the entry's place in the list.
+        property var values: null
+        function place() {
+            return values ? Math.max(0, values.indexOf(page.value(key))) : page.value(key);
+        }
+
+        implicitWidth: 380
+        currentIndex: place()
+        onActivated: (index) => {
+            page.change(key, values ? values[index] : index);
+            currentIndex = Qt.binding(() => pick.place());
+        }
+    }
+
     Flickable {
         id: scroller
         anchors.fill: parent
+        anchors.bottomMargin: page.dirty ? saveBar.height + 24 : 0
         contentHeight: content.implicitHeight + 56
         clip: true
         boundsBehavior: Flickable.StopAtBounds
@@ -29,217 +130,189 @@ Item {
             }
         }
 
-        ColumnLayout {
+        // Two cards side by side on a wide window, so the page needs no scrolling there.
+        GridLayout {
             id: content
+            readonly property bool wide: scroller.width >= 1100
+
             x: 28
             y: 28
-            width: Math.min(scroller.width - 56, 980)
-            spacing: 18
+            width: Math.min(scroller.width - 56, wide ? 1560 : 980)
+            columns: wide ? 2 : 1
+            uniformCellWidths: true
+            columnSpacing: 18
+            rowSpacing: 18
 
             // The stream's own settings live in a dialog of their own (chiaki-ng's): this is the way in.
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: stream.implicitHeight + 40
-                radius: 14
-                color: shell.card
-                border.color: shell.line
+            Card {
+                title: qsTr("Stream")
 
-                ColumnLayout {
-                    id: stream
-                    x: 22
-                    y: 20
-                    width: parent.width - 44
-                    spacing: 14
-
-                    FText { text: qsTr("Stream"); font.pixelSize: 15; font.weight: Font.DemiBold }
-                    FText {
-                        Layout.fillWidth: true
-                        text: qsTr("Video and sound of the stream, controllers, keys, consoles and your PSN sign-in.")
-                        color: shell.muted
-                        wrapMode: Text.WordWrap
-                    }
-                    FButton {
-                        primary: true
-                        text: qsTr("Open stream settings")
-                        onClicked: root.showSettingsDialog()
-                    }
+                FText {
+                    Layout.fillWidth: true
+                    text: qsTr("Video and sound of the stream, controllers, keys, consoles and your PSN sign-in.")
+                    color: shell.muted
+                    wrapMode: Text.WordWrap
+                }
+                FButton {
+                    primary: true
+                    text: qsTr("Open stream settings")
+                    onClicked: root.showSettingsDialog()
                 }
             }
 
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: updates.implicitHeight + 40
-                radius: 14
-                color: shell.card
-                border.color: shell.line
+            Card {
+                title: qsTr("Updates")
 
-                ColumnLayout {
-                    id: updates
-                    x: 22
-                    y: 20
-                    width: parent.width - 44
-                    spacing: 14
+                RowLayout {
+                    spacing: 16
 
-                    FText { text: qsTr("Updates"); font.pixelSize: 15; font.weight: Font.DemiBold }
-                    RowLayout {
-                        spacing: 16
-
-                        FText { text: qsTr("Channel") }
-                        FCombo {
-                            implicitWidth: 380
-                            model: [qsTr("Stable"), qsTr("Alpha: early versions, may break")]
-                            currentIndex: Farside.updateChannel === "alpha" ? 1 : 0
-                            onActivated: (index) => Farside.updateChannel = index === 1 ? "alpha" : "stable"
-                        }
-                        FButton { text: qsTr("Check for updates"); onClicked: Farside.checkForUpdate(true) }
+                    FText { text: qsTr("Channel") }
+                    Pick {
+                        key: "updateChannel"
+                        values: ["stable", "alpha"]
+                        model: [qsTr("Stable"), qsTr("Alpha: early versions, may break")]
                     }
-                    FText {
-                        Layout.fillWidth: true
-                        text: qsTr("Farside looks for a newer version when it starts and every six hours. A new version is fetched by itself and installed when you click Restart and update at the bottom of the window. This is version %1.").arg(Farside.version)
-                        color: shell.muted
-                        wrapMode: Text.WordWrap
-                    }
+                    FButton { text: qsTr("Check for updates"); onClicked: Farside.checkForUpdate(true) }
+                }
+                FText {
+                    Layout.fillWidth: true
+                    text: qsTr("Farside looks for a newer version when it starts and every six hours. A new version is fetched by itself and installed when you click Restart and update at the bottom of the window. This is version %1.").arg(Farside.version)
+                    color: shell.muted
+                    wrapMode: Text.WordWrap
                 }
             }
 
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: diagnostics.implicitHeight + 40
-                radius: 14
-                color: shell.card
-                border.color: shell.line
+            Card {
+                title: qsTr("Appearance")
 
-                ColumnLayout {
-                    id: diagnostics
-                    x: 22
-                    y: 20
-                    width: parent.width - 44
-                    spacing: 14
+                RowLayout {
+                    spacing: 16
 
-                    FText { text: qsTr("Diagnostics"); font.pixelSize: 15; font.weight: Font.DemiBold }
-                    FCheck {
-                        text: qsTr("Log: write controller link events to a file")
-                        checked: Farside.logEnabled
-                        onToggled: Farside.logEnabled = checked
+                    FText { text: qsTr("Text size") }
+                    Pick {
+                        key: "textSize"
+                        values: [0.8, 0.9, 1.05, 1.2]
+                        model: [qsTr("Small"), qsTr("Normal"), qsTr("Large"), qsTr("Largest")]
                     }
-                    FCheck {
-                        text: qsTr("Debug ms: show the delay to each connected PC in milliseconds")
-                        checked: shell.options.debugMs
-                        onToggled: shell.options.debugMs = checked
-                    }
-                    FButton { text: qsTr("Open log folder"); onClicked: Farside.openFolder(Farside.logFolder()) }
+                }
+                FText {
+                    Layout.fillWidth: true
+                    text: qsTr("Sizes everything in this window. The display scale set in Windows is followed on top of it; a small window shrinks the page further.")
+                    color: shell.muted
+                    wrapMode: Text.WordWrap
                 }
             }
 
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: picture.implicitHeight + 40
-                radius: 14
-                color: shell.card
-                border.color: shell.line
+            Card {
+                title: qsTr("Diagnostics")
+
+                Tick {
+                    key: "logEnabled"
+                    text: qsTr("Log: write controller link events to a file")
+                }
+                Tick {
+                    key: "debugMs"
+                    text: qsTr("Debug ms: show the delay to each connected PC in milliseconds")
+                }
+                FButton { text: qsTr("Open log folder"); onClicked: Farside.openFolder(Farside.logFolder()) }
+            }
+
+            Card {
+                title: qsTr("Picture")
                 visible: !shell.isClient
 
-                ColumnLayout {
-                    id: picture
-                    x: 22
-                    y: 20
-                    width: parent.width - 44
-                    spacing: 14
+                GridLayout {
+                    columns: 2
+                    columnSpacing: 16
+                    rowSpacing: 12
 
-                    FText { text: qsTr("Picture"); font.pixelSize: 15; font.weight: Font.DemiBold }
-
-                    GridLayout {
-                        columns: 2
-                        columnSpacing: 16
-                        rowSpacing: 12
-
-                        FText { text: qsTr("Upscaling") }
-                        FCombo {
-                            implicitWidth: 380
-                            model: [qsTr("Fast (least GPU work)"), qsTr("Default"), qsTr("High quality"), qsTr("High quality + spatial upscaling"), qsTr("High quality + advanced spatial upscaling"), qsTr("Custom")]
-                            currentIndex: Chiaki.settings.videoPreset
-                            onActivated: (index) => {
-                                Chiaki.settings.videoPreset = index;
-                                // The same order as ChiakiWindow.VideoPreset; this applies it to a running stream too.
-                                Chiaki.window.videoPreset = index;
-                            }
-                        }
-
-                        FText { text: qsTr("Upscaler"); visible: custom.visible }
-                        FCombo {
-                            id: custom
-                            implicitWidth: 380
-                            visible: Chiaki.settings.videoPreset === 5
-                            model: [qsTr("From the renderer options"), qsTr("Nearest"), qsTr("Bilinear"), qsTr("Oversample"), qsTr("Bicubic"), qsTr("Gaussian"), qsTr("Catmull Rom"), qsTr("Lanczos"), qsTr("EwaLanczos"), qsTr("EwaLanczosSharp"), qsTr("EwaLanczosSharpest"), qsTr("FSR"), qsTr("FSRCNNX x2 8-0-4-1"), qsTr("FSRCNNX x2 16-0-4-1")]
-                            currentIndex: Chiaki.settings.placeboUpscaler
-                            onActivated: (index) => Chiaki.settings.placeboUpscaler = index
-                        }
-
-                        FText { text: qsTr("Frame mixing"); visible: custom.visible }
-                        FCombo {
-                            implicitWidth: 380
-                            visible: custom.visible
-                            model: [qsTr("Off"), qsTr("Oversample"), qsTr("Hermite"), qsTr("Linear"), qsTr("Cubic")]
-                            currentIndex: Chiaki.settings.placeboFrameMixer
-                            onActivated: (index) => Chiaki.settings.placeboFrameMixer = index
-                        }
+                    FText { text: qsTr("Upscaling") }
+                    Pick {
+                        key: "videoPreset"
+                        model: [qsTr("Fast (least GPU work)"), qsTr("Default"), qsTr("High quality"), qsTr("High quality + spatial upscaling"), qsTr("High quality + advanced spatial upscaling"), qsTr("Custom")]
                     }
 
-                    FCheck {
-                        text: qsTr("Debanding: smooth out colour steps in skies and shadows")
+                    FText { text: qsTr("Upscaler"); visible: custom.visible }
+                    Pick {
+                        id: custom
+                        key: "placeboUpscaler"
+                        visible: page.value("videoPreset") === 5
+                        model: [qsTr("From the renderer options"), qsTr("Nearest"), qsTr("Bilinear"), qsTr("Oversample"), qsTr("Bicubic"), qsTr("Gaussian"), qsTr("Catmull Rom"), qsTr("Lanczos"), qsTr("EwaLanczos"), qsTr("EwaLanczosSharp"), qsTr("EwaLanczosSharpest"), qsTr("FSR"), qsTr("FSRCNNX x2 8-0-4-1"), qsTr("FSRCNNX x2 16-0-4-1")]
+                    }
+
+                    FText { text: qsTr("Frame mixing"); visible: custom.visible }
+                    Pick {
+                        key: "placeboFrameMixer"
                         visible: custom.visible
-                        checked: Chiaki.settings.placeboDebandEnabled
-                        onToggled: Chiaki.settings.placeboDebandEnabled = checked
+                        model: [qsTr("Off"), qsTr("Oversample"), qsTr("Hermite"), qsTr("Linear"), qsTr("Cubic")]
                     }
-                    FButton {
-                        text: qsTr("All renderer options")
-                        visible: custom.visible
-                        onClicked: root.showPlaceboSettingsDialog()
-                    }
-                    FText {
-                        Layout.fillWidth: true
-                        text: qsTr("Upscaling is done by this PC's graphics card after the picture arrives. It adds no network delay; the higher presets cost a little GPU time per frame.")
-                        color: shell.muted
-                        wrapMode: Text.WordWrap
-                    }
+                }
+
+                Tick {
+                    key: "placeboDebandEnabled"
+                    text: qsTr("Debanding: smooth out colour steps in skies and shadows")
+                    visible: custom.visible
+                }
+                FButton {
+                    text: qsTr("All renderer options")
+                    visible: custom.visible
+                    onClicked: root.showPlaceboSettingsDialog()
+                }
+                FText {
+                    Layout.fillWidth: true
+                    text: qsTr("Upscaling is done by this PC's graphics card after the picture arrives. It adds no network delay; the higher presets cost a little GPU time per frame.")
+                    color: shell.muted
+                    wrapMode: Text.WordWrap
                 }
             }
 
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: hud.implicitHeight + 40
-                radius: 14
-                color: shell.card
-                border.color: shell.line
+            Card {
+                title: qsTr("Stream HUD")
                 visible: !shell.isClient
 
-                ColumnLayout {
-                    id: hud
-                    x: 22
-                    y: 20
-                    width: parent.width - 44
-                    spacing: 14
-
-                    FText { text: qsTr("Stream HUD"); font.pixelSize: 15; font.weight: Font.DemiBold }
-                    FCheck {
-                        text: qsTr("Response label next to the bitrate")
-                        checked: shell.options.hudResponse
-                        onToggled: shell.options.hudResponse = checked
-                    }
-                    FCheck {
-                        text: qsTr("Stream statistics (bitrate, packet loss, frame times in ms)")
-                        checked: Chiaki.settings.showStreamStats
-                        onToggled: Chiaki.settings.showStreamStats = checked
-                    }
-                    FCheck {
-                        text: qsTr("Verbose stream log")
-                        checked: Chiaki.settings.logVerbose
-                        onToggled: Chiaki.settings.logVerbose = checked
-                    }
-                    FButton { text: qsTr("Open stream logs"); onClicked: Farside.openFolder(Chiaki.settings.logDirectory) }
-                    FText { text: qsTr("These take effect the next time a stream starts."); color: shell.muted }
+                Tick {
+                    key: "hudResponse"
+                    text: qsTr("Response label next to the bitrate")
                 }
+                Tick {
+                    key: "showStreamStats"
+                    text: qsTr("Stream statistics: graph of delays in ms (now and average), bitrate, packet loss")
+                }
+                Tick {
+                    key: "logVerbose"
+                    text: qsTr("Verbose stream log")
+                }
+                FButton { text: qsTr("Open stream logs"); onClicked: Farside.openFolder(Chiaki.settings.logDirectory) }
+                FText { text: qsTr("These take effect the next time a stream starts."); color: shell.muted }
             }
+        }
+    }
+
+    Rectangle {
+        id: saveBar
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: 16
+        height: 60
+        radius: 12
+        color: "#1a1a25"
+        border.color: shell.edge
+        visible: page.dirty
+
+        FText {
+            x: 20
+            anchors.verticalCenter: parent.verticalCenter
+            text: qsTr("You have unsaved changes.")
+        }
+        Row {
+            anchors.right: parent.right
+            anchors.rightMargin: 8
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 10
+
+            FButton { text: qsTr("Reset"); onClicked: page.reset() }
+            FButton { primary: true; text: qsTr("Save changes"); onClicked: page.save() }
         }
     }
 }

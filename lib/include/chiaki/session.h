@@ -82,6 +82,7 @@ typedef struct chiaki_connect_info_t
 	bool video_profile_auto_downgrade; // Downgrade video_profile if server does not seem to support it.
 	bool enable_keyboard;
 	bool enable_dualsense;
+	bool frame_timing; // Farside: ask a PS5 for its picture clock (see frametiming.h)
 	ChiakiDisableAudioVideo audio_video_disabled;
 	bool auto_regist;
 	ChiakiHolepunchSession holepunch_session;
@@ -225,6 +226,7 @@ typedef struct chiaki_session_t
 		ChiakiDisableAudioVideo disable_audio_video;
 		bool enable_keyboard;
 		bool enable_dualsense;
+		bool frame_timing;
 		uint8_t psn_account_id[CHIAKI_PSN_ACCOUNT_ID_SIZE];
 		bool enable_idr_on_fec_failure;
 	} connect_info;

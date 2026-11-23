@@ -18,6 +18,7 @@
     <file>FBack.qml</file>
     <file>FTick.qml</file>
     <file>FSlider.qml</file>
+    <file>FStreamChoice.qml</file>
     <file>MainView.qml</file>
     <file>StreamView.qml</file>
     <file>StreamMenuWindow.qml</file>

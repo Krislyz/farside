@@ -308,9 +308,9 @@ Item {
 
     // ---- Farside: floating bar, modelled on capstream ----
     // Collapsed it is a small tab with an arrow, shown only while the mouse is at the top edge.
-    // Opened it holds the stream settings and Fullscreen. F11 toggles fullscreen at any time.
-    // Resolution, frame rate and bitrate are fixed when a session starts (PS5 Remote Play works that way),
-    // so a change here is stored and takes effect at the next connect.
+    // Opened it shows the stream's quality and holds Fullscreen and Disconnect. F11 toggles fullscreen
+    // at any time. Resolution, frame rate and bitrate are fixed when a session starts (PS5 Remote Play
+    // works that way), so they are chosen on the Play page and only shown here.
     Connections {
         target: Chiaki.window
         function onBarHotChanged() {
@@ -323,20 +323,8 @@ Item {
         id: farsideBar
         readonly property bool open: Chiaki.window.barOpen
         readonly property color accent: "#d4267e"
-        readonly property var resolutionNames: ["640x360 (360p)", "960x540 (540p)", "1280x720 (720p)", "1920x1080 (1080p)"]
-        // What chiaki-ng itself uses when the bitrate is left on automatic, in Mbps per resolution.
-        readonly property var autoBitrate: [2, 6, 10, 15]
-        // ponytail: three fixed presets as [resolution, fps, kbps]. Tune these numbers after real use;
-        // the single controls beside them allow any other combination.
-        readonly property var presets: [[3, 60, 8000], [4, 60, 15000], [4, 60, 30000]]
-        readonly property var presetNames: [qsTr("Smooth"), qsTr("Balanced"), qsTr("Quality")]
-        readonly property int currentPreset: {
-            for (var i = 0; i < presets.length; i++)
-                if (Chiaki.settings.resolutionLocalPS5 === presets[i][0] && Chiaki.settings.fpsLocalPS5 === presets[i][1] && Chiaki.settings.bitrateLocalPS5 === presets[i][2])
-                    return i;
-            return -1;
-        }
-        property bool changed: false
+
+        FStreamChoice { id: choice }
 
         // Farside options, kept between sessions (stored with chiaki-ng's own settings, under "farside").
         Settings {
@@ -346,29 +334,9 @@ Item {
             property bool hudResponse: false
         }
 
-        // The local and the remote profile are kept the same: this window is always used on the PS5's own network.
-        function store(resolution, fps, kbps) {
-            Chiaki.settings.resolutionLocalPS5 = resolution; Chiaki.settings.resolutionRemotePS5 = resolution;
-            Chiaki.settings.fpsLocalPS5 = fps; Chiaki.settings.fpsRemotePS5 = fps;
-            Chiaki.settings.bitrateLocalPS5 = kbps; Chiaki.settings.bitrateRemotePS5 = kbps;
-            changed = true;
-            lowestLatency();
-            Chiaki.window.requestOverlayUpdate();
-        }
-
-        // Whatever is picked, response time comes first: vertical sync stays off. How the picture is
-        // enlarged (the render preset) is the user's choice under Settings, Picture.
-        function lowestLatency() {
-            Chiaki.settings.vSyncEnabled = false;
-        }
-        Component.onCompleted: lowestLatency()
-
-        // What the chosen bitrate costs in response time. Bigger frames take longer to send and to decode.
-        // ponytail: fixed steps by Mbps; replace with a measured delay if chiaki-ng ever exposes one.
-        readonly property string latencyHint: {
-            var mbps = Chiaki.settings.bitrateLocalPS5 > 0 ? Chiaki.settings.bitrateLocalPS5 / 1000 : autoBitrate[Chiaki.settings.resolutionLocalPS5 - 1];
-            return mbps <= 10 ? qsTr("fastest") : mbps <= 20 ? qsTr("fast") : mbps <= 50 ? qsTr("slower") : qsTr("slowest");
-        }
+        // Response time comes first: vertical sync stays off. How the picture is enlarged (the render
+        // preset) is the user's choice under Settings, Picture.
+        Component.onCompleted: Chiaki.settings.vSyncEnabled = false
 
         // Shown while the mouse is at the top edge. It fades and slides in and out, and grows and
         // shrinks between tab and bar; every step is short (160 to 220 ms) so it never feels slow.
@@ -445,79 +413,19 @@ Item {
                 Layout.rightMargin: 6
             }
 
-            // Pickers, as in Parsec's settings. While a list is open the window takes the mouse away from the
-            // PS5 (grabInput); otherwise a click on the list, which hangs below the bar, would go to the console.
-            C.ComboBox {
-                id: priorityPicker
-                property bool listOpen: popup.visible
-                onListOpenChanged: { if (listOpen) view.grabInput(null); else view.releaseInput(); Chiaki.window.requestOverlayUpdate() }
-                model: [farsideBar.presetNames[0], farsideBar.presetNames[1], farsideBar.presetNames[2], qsTr("Custom")]
-                currentIndex: farsideBar.currentPreset >= 0 ? farsideBar.currentPreset : 3
-                implicitWidth: 130
-                implicitHeight: 40
+            // What this stream runs with. It is chosen on the Play page, before the stream starts.
+            Label {
+                text: choice.summary
+                color: "#d6d6e0"
                 font.pixelSize: 13
-                focusPolicy: Qt.NoFocus
-                Material.accent: farsideBar.accent
-                onActivated: (index) => { if (index < 3) farsideBar.store(farsideBar.presets[index][0], farsideBar.presets[index][1], farsideBar.presets[index][2]) }
-            }
-
-            C.ComboBox {
-                property bool listOpen: popup.visible
-                onListOpenChanged: { if (listOpen) view.grabInput(null); else view.releaseInput(); Chiaki.window.requestOverlayUpdate() }
-                model: farsideBar.resolutionNames
-                currentIndex: Chiaki.settings.resolutionLocalPS5 - 1
-                implicitWidth: 200
-                implicitHeight: 40
-                font.pixelSize: 13
-                focusPolicy: Qt.NoFocus
-                Material.accent: farsideBar.accent
-                // A bitrate the user chose stays when the resolution changes. On automatic (0) the
-                // bitrate follows the new resolution by itself.
-                onActivated: (index) => farsideBar.store(index + 1, Chiaki.settings.fpsLocalPS5, Chiaki.settings.bitrateLocalPS5)
-            }
-
-            C.ComboBox {
-                property bool listOpen: popup.visible
-                onListOpenChanged: { if (listOpen) view.grabInput(null); else view.releaseInput(); Chiaki.window.requestOverlayUpdate() }
-                model: ["30 fps", "60 fps"]
-                currentIndex: Chiaki.settings.fpsLocalPS5 / 30 - 1
-                implicitWidth: 100
-                implicitHeight: 40
-                font.pixelSize: 13
-                focusPolicy: Qt.NoFocus
-                Material.accent: farsideBar.accent
-                onActivated: (index) => farsideBar.store(Chiaki.settings.resolutionLocalPS5, (index + 1) * 30, Chiaki.settings.bitrateLocalPS5)
-            }
-
-            C.ComboBox {
-                // 0 = automatic: chiaki-ng picks the bitrate that belongs to the resolution.
-                // 100 Mbps is the most chiaki-ng lets you ask the PS5 for.
-                readonly property var rates: [0, 5000, 8000, 10000, 15000, 20000, 30000, 50000, 75000, 100000]
-                property bool listOpen: popup.visible
-                onListOpenChanged: { if (listOpen) view.grabInput(null); else view.releaseInput(); Chiaki.window.requestOverlayUpdate() }
-                model: rates.map((r) => r === 0 ? qsTr("Auto (%1 Mbps)").arg(farsideBar.autoBitrate[Chiaki.settings.resolutionLocalPS5 - 1]) : (r / 1000) + " Mbps")
-                currentIndex: rates.indexOf(Chiaki.settings.bitrateLocalPS5)
-                // A bitrate set in Settings that is not in the list still shows as what it is.
-                displayText: currentIndex >= 0 ? currentText : (Chiaki.settings.bitrateLocalPS5 / 1000) + " Mbps"
-                implicitWidth: 160
-                implicitHeight: 40
-                font.pixelSize: 13
-                focusPolicy: Qt.NoFocus
-                Material.accent: farsideBar.accent
-                onActivated: (index) => farsideBar.store(Chiaki.settings.resolutionLocalPS5, Chiaki.settings.fpsLocalPS5, rates[index])
+                Layout.rightMargin: 6
             }
             Label {
                 visible: farsideOptions.hudResponse
-                text: qsTr("response: %1").arg(farsideBar.latencyHint)
-                color: farsideBar.latencyHint === qsTr("fastest") || farsideBar.latencyHint === qsTr("fast") ? "#3ddc97" : "#ff8a3d"
+                text: qsTr("response: %1").arg(choice.latencyHint)
+                color: choice.quick ? "#3ddc97" : "#ff8a3d"
                 font.pixelSize: 12
-            }
-
-            Label {
-                visible: farsideBar.changed
-                text: qsTr("applies on reconnect")
-                color: "#ff8a3d"
-                font.pixelSize: 12
+                Layout.rightMargin: 6
             }
 
             FButton {

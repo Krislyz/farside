@@ -18,6 +18,7 @@ extern MunitTest tests_aia[];
 #endif
 extern MunitTest tests_bitstream[];
 extern MunitTest tests_audio_receiver[];
+extern MunitTest tests_frame_timing[];
 #if CHIAKI_LIB_ENABLE_FFMPEG_DECODER
 extern MunitTest tests_ffmpegdecoder[];
 #endif
@@ -112,6 +113,13 @@ static MunitSuite suites[] = {
 	{
 		"/audio_receiver",
 		tests_audio_receiver,
+		NULL,
+		1,
+		MUNIT_SUITE_OPTION_NONE
+	},
+	{
+		"/frame_timing",
+		tests_frame_timing,
 		NULL,
 		1,
 		MUNIT_SUITE_OPTION_NONE

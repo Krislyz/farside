@@ -23,6 +23,7 @@ set(CHIAKI_UNIT_SOURCES
 				test_log.h
 				bitstream.c
 				audioreceiver.c
+				frametiming.c
 				regist.c)
 
 if(NOT CHIAKI_LIB_ENABLE_MBEDTLS)

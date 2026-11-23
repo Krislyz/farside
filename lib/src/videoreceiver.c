@@ -199,6 +199,7 @@ CHIAKI_EXPORT void chiaki_video_receiver_av_packet(ChiakiVideoReceiver *video_re
 		}
 
 		video_receiver->frame_index_cur = frame_index;
+		video_receiver->frame_first_us = chiaki_time_now_monotonic_us();
 		err = chiaki_frame_processor_alloc_frame(&video_receiver->frame_processor, packet);
 		if(err != CHIAKI_ERR_SUCCESS)
 			CHIAKI_LOGW(video_receiver->log, "Video receiver could not allocate frame for packet.");
@@ -324,6 +325,11 @@ static ChiakiErrorCode chiaki_video_receiver_flush_frame(ChiakiVideoReceiver *vi
 			}
 		}
 	}
+
+	// Farside: the picture is whole; the console's clock for it comes later (see frametiming.h).
+	if(succ)
+		chiaki_frame_timing_frame(&video_receiver->session->stream_connection.frame_timing, (uint16_t)video_receiver->frame_index_cur,
+			video_receiver->frame_first_us, chiaki_time_now_monotonic_us());
 
 	if(succ && video_receiver->session->video_sample_cb)
 	{

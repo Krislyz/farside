@@ -23,7 +23,8 @@ Item {
     readonly property color off: "#5d5d70"
 
     readonly property bool isClient: true
-    readonly property real u: Math.max(0.75, Math.min(1.2, width / 1120, height / 700))
+    // As the Host at its normal text size (FarsideShell.qml).
+    readonly property real u: Math.max(0.75, Math.min(0.9, width / 1120, height / 700))
     // The Host's Settings page has these switches; the Client has none of them.
     readonly property var options: ({ debugMs: false })
     property alias tab: remotePage.tab

@@ -8,7 +8,7 @@ import QtQuick.Templates as T
 import org.streetpea.chiaking
 
 Rectangle {
-    height: 28
+    height: 33
     color: shell.side
 
     component Link: T.AbstractButton {
@@ -17,7 +17,7 @@ Rectangle {
 
         anchors.verticalCenter: parent.verticalCenter
         implicitWidth: word.implicitWidth
-        implicitHeight: 20
+        implicitHeight: 23
         hoverEnabled: true
         Keys.onReturnPressed: clicked()
 
@@ -25,7 +25,7 @@ Rectangle {
             id: word
             text: link.text
             color: link.ink
-            font.pixelSize: 12
+            font.pixelSize: 14
             font.weight: Font.DemiBold
             font.underline: link.hovered || link.visualFocus
             verticalAlignment: Text.AlignVCenter
@@ -44,7 +44,7 @@ Rectangle {
                 : Farside.updateState === "failed" ? qsTr("Could not ask GitHub for updates. Try again later.")
                 : qsTr("Version %1 · © 2026 Moonthia. Not affiliated with Sony Interactive Entertainment.").arg(Farside.version)
             color: shell.muted
-            font.pixelSize: 12
+            font.pixelSize: 14
         }
         // The check also runs by itself (see farsidebackend.h); updates come as Setup programs for Windows.
         Link {
@@ -65,7 +65,7 @@ Rectangle {
             text: Farside.updateState === "ready" ? qsTr("Version %1 is ready to install.").arg(Farside.updateVersion)
                                                   : qsTr("Fetching version %1.").arg(Farside.updateVersion)
             color: shell.ink
-            font.pixelSize: 12
+            font.pixelSize: 14
         }
         Link {
             visible: Farside.updateState === "ready"

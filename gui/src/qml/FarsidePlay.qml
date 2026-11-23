@@ -300,6 +300,108 @@ Item {
             }
         }
 
+        // Quality of the stream. It is fixed when a stream starts, so it is chosen here, before Play.
+        // A click breaks the binding of a list's currentIndex, so each list sets it again.
+        Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: streamColumn.implicitHeight + 36
+            radius: 14
+            color: shell.card
+            border.color: shell.line
+
+            FStreamChoice { id: choice }
+
+            Column {
+                id: streamColumn
+                x: 22
+                y: 18
+                width: parent.width - 44
+                spacing: 12
+
+                FText {
+                    text: qsTr("Stream")
+                    font.weight: Font.DemiBold
+                }
+                Row {
+                    spacing: 12
+
+                    Column {
+                        spacing: 4
+
+                        FText { text: qsTr("Quality"); color: shell.muted; font.pixelSize: 13 }
+                        FCombo {
+                            id: presetList
+                            implicitWidth: 170
+                            focusPolicy: Qt.NoFocus
+                            model: choice.presetNames
+                            currentIndex: choice.preset
+                            onActivated: (index) => {
+                                if (index < choice.presets.length)
+                                    choice.store(choice.presets[index][0], choice.presets[index][1], choice.presets[index][2]);
+                                currentIndex = Qt.binding(() => choice.preset);
+                            }
+                        }
+                    }
+                    Column {
+                        spacing: 4
+
+                        FText { text: qsTr("Resolution"); color: shell.muted; font.pixelSize: 13 }
+                        FCombo {
+                            implicitWidth: 230
+                            focusPolicy: Qt.NoFocus
+                            model: choice.resolutionNames
+                            currentIndex: choice.resolution - 1
+                            // A bitrate the user chose stays when the resolution changes. On automatic
+                            // the bitrate follows the new resolution by itself.
+                            onActivated: (index) => {
+                                choice.store(index + 1, choice.fps, choice.kbps);
+                                currentIndex = Qt.binding(() => choice.resolution - 1);
+                            }
+                        }
+                    }
+                    Column {
+                        spacing: 4
+
+                        FText { text: qsTr("Frame rate"); color: shell.muted; font.pixelSize: 13 }
+                        FCombo {
+                            implicitWidth: 130
+                            focusPolicy: Qt.NoFocus
+                            model: ["30 fps", "60 fps"]
+                            currentIndex: choice.fps / 30 - 1
+                            onActivated: (index) => {
+                                choice.store(choice.resolution, (index + 1) * 30, choice.kbps);
+                                currentIndex = Qt.binding(() => choice.fps / 30 - 1);
+                            }
+                        }
+                    }
+                    Column {
+                        spacing: 4
+
+                        FText { text: qsTr("Max bitrate"); color: shell.muted; font.pixelSize: 13 }
+                        FCombo {
+                            implicitWidth: 190
+                            focusPolicy: Qt.NoFocus
+                            model: choice.rates.map((r) => r === 0 ? qsTr("Auto") : qsTr("%1 Mbps").arg(r / 1000))
+                            currentIndex: choice.rates.indexOf(choice.kbps)
+                            // "Auto" names its bitrate; a bitrate from the stream settings dialog that
+                            // is not in the list still shows as what it is.
+                            displayText: choice.bitrateText
+                            onActivated: (index) => {
+                                choice.store(choice.resolution, choice.fps, choice.rates[index]);
+                                currentIndex = Qt.binding(() => choice.rates.indexOf(choice.kbps));
+                            }
+                        }
+                    }
+                }
+                FText {
+                    width: parent.width
+                    text: qsTr("Used by the next stream you start. Max bitrate is a ceiling: the PS5 sends less when the picture needs less. Response: %1; bigger pictures take longer to send and to decode.").arg(choice.latencyHint)
+                    color: shell.muted
+                    wrapMode: Text.WordWrap
+                }
+            }
+        }
+
         Rectangle {
             Layout.fillWidth: true
             implicitHeight: 72
@@ -336,7 +438,7 @@ Item {
 
         FText {
             Layout.fillWidth: true
-            text: qsTr("During a stream: F11 switches fullscreen, and the bar at the top edge holds quality, resolution, frame rate and bitrate.")
+            text: qsTr("During a stream: F11 switches fullscreen, and the bar at the top edge shows these settings and holds Fullscreen and Disconnect.")
             color: shell.muted
             wrapMode: Text.WordWrap
         }

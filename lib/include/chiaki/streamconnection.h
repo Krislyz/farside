@@ -11,6 +11,7 @@
 #include "audioreceiver.h"
 #include "videoreceiver.h"
 #include "congestioncontrol.h"
+#include "frametiming.h"
 
 #include <stdbool.h>
 
@@ -78,6 +79,11 @@ typedef struct chiaki_stream_connection_t
 	char *remote_disconnect_reason;
 
 	double measured_bitrate;
+
+	// Farside: for the graph in the stream. Written by the receiving thread, read by the window.
+	ChiakiFrameTiming frame_timing;
+	double remote_rtt_ms; // the console's own round trip, as it last said (ConnectionQuality)
+	uint32_t remote_target_bitrate; // bit/s the console aims for
 } ChiakiStreamConnection;
 
 CHIAKI_EXPORT ChiakiErrorCode chiaki_stream_connection_init(ChiakiStreamConnection *stream_connection, ChiakiSession *session, double packet_loss_max);

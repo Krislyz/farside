@@ -38,6 +38,8 @@ CHIAKI_EXPORT ChiakiErrorCode chiaki_ffmpeg_decoder_init(ChiakiFfmpegDecoder *de
 	decoder->frame_available_cb_user = frame_available_cb_user;
 	decoder->hdr_enabled = codec == CHIAKI_CODEC_H265_HDR;
 	decoder->frames_lost = 0;
+	decoder->farside_sent_count = 0;
+	decoder->farside_decode_ms = -1;
 	decoder->frame_recovered = false;
 	decoder->synthetic_packet_pts = 0;
 	decoder->synthetic_framerate = (AVRational){max_fps > 0 ? (int)max_fps : 60, 1};
@@ -198,6 +200,8 @@ CHIAKI_EXPORT bool chiaki_ffmpeg_decoder_video_sample_cb(uint8_t *buf, size_t bu
 #endif
 	decoder->synthetic_packet_pts += synthetic_duration_pts;
 	int r;
+	decoder->farside_sent_pts[decoder->farside_sent_count % 16] = packet->pts;
+	decoder->farside_sent_us[decoder->farside_sent_count++ % 16] = chiaki_time_now_monotonic_us();
 send_packet:
 	r = avcodec_send_packet(decoder->codec_context, packet);
 	if(r != 0)
@@ -272,6 +276,10 @@ CHIAKI_EXPORT ChiakiFfmpegFrame chiaki_ffmpeg_decoder_pull_frame(ChiakiFfmpegDec
 			break;
 		}
 	}
+	if(frame)
+		for(unsigned int i = 0; i < 16 && i < decoder->farside_sent_count; i++)
+			if(decoder->farside_sent_pts[i] == frame->pts)
+				decoder->farside_decode_ms = (float)(chiaki_time_now_monotonic_us() - decoder->farside_sent_us[i]) / 1000.0f;
 	*frames_lost = decoder->frames_lost;
 	bool recovered = false;
 	if(frame && decoder->frame_recovered)

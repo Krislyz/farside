@@ -22,6 +22,7 @@ set(HEADER_FILES
 		include/chiaki/video.h
 		include/chiaki/videoreceiver.h
 		include/chiaki/frameprocessor.h
+		include/chiaki/frametiming.h
 		include/chiaki/packetstats.h
 		include/chiaki/seqnum.h
 		include/chiaki/discovery.h
@@ -68,6 +69,7 @@ set(SOURCE_FILES
 		src/audiosender.c
 		src/videoreceiver.c
 		src/frameprocessor.c
+		src/frametiming.c
 		src/packetstats.c
 		src/discovery.c
 		src/congestioncontrol.c

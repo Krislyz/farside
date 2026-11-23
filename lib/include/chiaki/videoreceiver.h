@@ -39,6 +39,7 @@ typedef struct chiaki_video_receiver_t
 	bool waiting_for_idr;
 	uint64_t idr_request_last_ms; // when the IDR being waited for was last requested
 	ChiakiMutex frames_lost_mutex;
+	uint64_t frame_first_us; // Farside: when the first part of the current picture came (see frametiming.h)
 } ChiakiVideoReceiver;
 
 CHIAKI_EXPORT void chiaki_video_receiver_init(ChiakiVideoReceiver *video_receiver, struct chiaki_session_t *session, ChiakiPacketStats *packet_stats);

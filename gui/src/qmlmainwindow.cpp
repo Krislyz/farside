@@ -5,6 +5,7 @@
 #include "chiaki/log.h"
 #include "chiaki/time.h"
 #include "streamsession.h"
+#include "farsidegraph.h"
 
 #include <qpa/qplatformnativeinterface.h>
 
@@ -37,6 +38,10 @@ extern "C" {
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFrame>
+#include <QPainter>
+#include <QPainterPath>
+#include <QQueue>
+#include <algorithm>
 #include <QOpenGLContext>
 #include <QOpenGLExtraFunctions>
 #include <QOpenGLFramebufferObject>
@@ -106,6 +111,8 @@ private:
     qint64 locked_us = 0;
 };
 
+// Farside: the panel of the "Stream statistics" switch. A graph of the last 20 seconds and, for every line,
+// the value now and the average over those 20 seconds. Painted by hand, in the look of the app.
 class StatsOverlayWidget : public QWidget
 {
 public:
@@ -122,66 +129,8 @@ public:
         setFocusPolicy(Qt::NoFocus);
         setAutoFillBackground(false);
 
-        auto *outer = new QHBoxLayout(this);
-        outer->setContentsMargins(0, 0, 6, 0);
-        outer->setSpacing(0);
-        outer->addStretch(1);
-
-        auto *panel = new QFrame(this);
-        panel->setObjectName(QStringLiteral("statsPanel"));
-        panel->setStyleSheet(QStringLiteral(
-            "#statsPanel {"
-            "  background: rgba(11, 11, 16, 215);"
-            "  border: 1px solid #262633;"
-            "  border-radius: 10px;"
-            "}"
-            "QLabel { color: #a3a3b5; }"));
-        panel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Minimum);
-
-        auto *panelLayout = new QVBoxLayout(panel);
-        panelLayout->setContentsMargins(14, 12, 14, 12);
-        panelLayout->setSpacing(8);
-
-        auto makeRow = [panelLayout](const QString &title, const QColor &valueColor, QFont titleFont, QFont valueFont, QLabel *&valueLabel) {
-            auto *row = new QWidget(panelLayout->parentWidget());
-            auto *rowLayout = new QHBoxLayout(row);
-            rowLayout->setContentsMargins(0, 0, 0, 0);
-            rowLayout->setSpacing(8);
-            auto *titleLabel = new QLabel(title, row);
-            titleLabel->setFont(titleFont);
-            titleLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-            titleLabel->setMinimumWidth(110);
-            auto *value = new QLabel(row);
-            value->setFont(valueFont);
-            value->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-            value->setStyleSheet(QStringLiteral("color: %1;").arg(valueColor.name()));
-            value->setTextInteractionFlags(Qt::NoTextInteraction);
-            valueLabel = value;
-            rowLayout->addWidget(titleLabel);
-            rowLayout->addWidget(value, 1);
-            panelLayout->addWidget(row);
-            return row;
-        };
-
-        // Farside: the look of the app (Inter, light values, pink for the bitrate, red only for losses).
-        QFont titleFont(QStringLiteral("Inter"));
-        titleFont.setPixelSize(14);
-        QFont valueFont(QStringLiteral("Inter"));
-        valueFont.setPixelSize(17);
-        valueFont.setWeight(QFont::DemiBold);
-
-        bitrateRow = makeRow(tr("Mbps"), QColor(QStringLiteral("#fd4fa4")), titleFont, valueFont, bitrateValue);
-        queueRow = makeRow(tr("queue depth avg"), QColor(QStringLiteral("#f3f3f6")), titleFont, valueFont, queueDepthValue);
-        pendingRow = makeRow(tr("pending frame age"), QColor(QStringLiteral("#f3f3f6")), titleFont, valueFont, pendingAgeValue);
-        packetLossRow = makeRow(tr("packet loss"), QColor(QStringLiteral("#ec6078")), titleFont, valueFont, packetLossValue);
-        droppedFramesRow = makeRow(tr("dropped frames"), QColor(QStringLiteral("#ec6078")), titleFont, valueFont, droppedFramesValue);
-        lostFramesRow = makeRow(tr("lost frames"), QColor(QStringLiteral("#ec6078")), titleFont, valueFont, lostFramesValue);
-
-        outer->addWidget(panel, 0, Qt::AlignRight | Qt::AlignVCenter);
-
-        connect(owner, &QmlMainWindow::queueDepthAverageChanged, this, &StatsOverlayWidget::refresh);
-        connect(owner, &QmlMainWindow::pendingFrameAgeChanged, this, &StatsOverlayWidget::refresh);
-        connect(owner, &QmlMainWindow::droppedFramesChanged, this, &StatsOverlayWidget::refresh);
+        timer.setInterval(100);
+        connect(&timer, &QTimer::timeout, this, [this]() { refresh(); });
         if (backend) {
             connect(backend, &QmlBackend::sessionChanged, this, [this](StreamSession *s) {
                 setSession(s);
@@ -189,7 +138,6 @@ public:
             });
             setSession(backend->qmlSession());
         }
-        refresh();
     }
 
     void setOverlayVisible(bool visible)
@@ -198,23 +146,27 @@ public:
             updateTransientParent();
             syncGeometry();
             refresh();
+            timer.start();
             if (!isVisible())
                 show();
             updateTransientParent();
             if (owner)
                 owner->requestActivate();
         } else {
+            timer.stop();
             if (QWindow *overlay_window = windowHandle())
                 overlay_window->setTransientParent(nullptr);
             hide();
         }
     }
 
+    // The panel only, at the right edge of the stream window: ten repaints a second stay small.
     void syncGeometry()
     {
         if (!owner)
             return;
-        const QRect g = owner->geometry();
+        const QRect o = owner->geometry();
+        const QRect g(o.right() - PanelWidth - 6, o.center().y() - PanelHeight / 2, PanelWidth, PanelHeight);
         if (geometry() != g)
             setGeometry(g);
     }
@@ -231,68 +183,192 @@ public:
     {
         if (session == current_session)
             return;
-        if (current_session)
-            QObject::disconnect(current_session, nullptr, this, nullptr);
         current_session = session;
-        if (current_session) {
-            connect(current_session, &StreamSession::MeasuredBitrateChanged, this, &StatsOverlayWidget::refresh);
-            connect(current_session, &StreamSession::AveragePacketLossChanged, this, &StatsOverlayWidget::refresh);
-            connect(current_session, &StreamSession::FramesLostChanged, this, &StatsOverlayWidget::refresh);
-            connect(current_session, &StreamSession::ConnectedChanged, this, &StatsOverlayWidget::refresh);
-        }
+        graph = Farside::Graph();
+        rtt_recent.clear();
     }
 
+    // Takes the values of this moment into the graph and paints.
     void refresh()
     {
-        StreamSession *session = current_session;
-        const bool hasSession = session != nullptr;
+        const quint64 now = chiaki_time_now_monotonic_us();
+        if (StreamSession *s = current_session) {
+            // The console's picture clock: one value per picture, each put at the time that picture came.
+            ChiakiFrameTimingSample pictures[CHIAKI_FRAME_TIMING_SAMPLES];
+            const size_t count = s->ReadFrameTiming(pictures, CHIAKI_FRAME_TIMING_SAMPLES);
+            for (size_t i = 0; i < count; i++) {
+                graph.add(Late, pictures[i].arrival_us, pictures[i].late_ms);
+                graph.add(Receive, pictures[i].arrival_us, pictures[i].receive_ms);
+            }
+            // The console smooths its round trip: one slow answer keeps the number high for a minute. The
+            // lowest of the last 10 seconds is the line itself.
+            const double rtt = s->GetRemoteRttMs();
+            if (rtt > 0) {
+                rtt_recent.enqueue(rtt);
+                if (rtt_recent.size() > 100)
+                    rtt_recent.dequeue();
+                graph.add(RoundTrip, now, (float)*std::min_element(rtt_recent.cbegin(), rtt_recent.cend()));
+            }
+            if (s->GetDecodeMs() >= 0)
+                graph.add(Decode, now, (float)s->GetDecodeMs());
+            if (owner)
+                graph.add(Wait, now, (float)(owner->pendingFrameAge() * 1000.0));
+            if (s->GetAudioWaitingMs() >= 0)
+                graph.add(Sound, now, (float)s->GetAudioWaitingMs());
+            graph.add(Bitrate, now, (float)s->GetMeasuredBitrate());
+        }
+        update();
+    }
 
-        bitrateRow->setVisible(hasSession);
-        if (hasSession)
-            bitrateValue->setText(QString::number(session->GetMeasuredBitrate(), 'f', 1));
-        else
-            bitrateValue->clear();
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        struct Row { int line; QString name; QColor color; };
+        const Row rows[] = {
+            { Late, tr("PS5: picture late"), QColor(QStringLiteral("#fd4fa4")) },
+            { RoundTrip, tr("PS5: round trip, lowest of 10 s"), QColor(QStringLiteral("#ff8a3d")) },
+            { Receive, tr("Receive a picture"), QColor(QStringLiteral("#a3a3b5")) },
+            { Decode, tr("Decoder: in to out"), QColor(QStringLiteral("#3ddc97")) },
+            { Wait, tr("Wait before shown"), QColor(QStringLiteral("#4fd1e8")) },
+            { Sound, tr("Sound waiting"), QColor(QStringLiteral("#b48cff")) },
+            { Bitrate, tr("Bitrate, Mbps"), QColor(QStringLiteral("#f3f3f6")) },
+        };
+        const quint64 now = chiaki_time_now_monotonic_us();
+        const QColor ink(QStringLiteral("#f3f3f6")), muted(QStringLiteral("#a3a3b5")), line(QStringLiteral("#262633"));
 
-        queueRow->setVisible(true);
-        queueDepthValue->setText(QString::number(owner ? owner->queueDepthAverage() : 0.0, 'f', 1));
-        pendingRow->setVisible(true);
-        pendingAgeValue->setText(tr("%1 ms").arg((owner ? owner->pendingFrameAge() : 0.0) * 1000.0, 0, 'f', 0));
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(line);
+        p.setBrush(QColor(11, 11, 16, 225));
+        p.drawRoundedRect(QRectF(0.5, 0.5, width() - 1, height() - 1), 10, 10);
 
-        packetLossRow->setVisible(hasSession);
-        if (hasSession) {
-            const double packetLoss = session->GetAveragePacketLoss();
-            packetLossValue->setText(QStringLiteral("%1%").arg((packetLoss * 100.0), 0, 'f', 1));
-        } else {
-            packetLossValue->clear();
+        QFont small(QStringLiteral("Inter"));
+        small.setPixelSize(11);
+        QFont text(QStringLiteral("Inter"));
+        text.setPixelSize(13);
+        QFont bold(text);
+        bold.setWeight(QFont::DemiBold);
+
+        // The graph. Milliseconds read on the right scale, the bitrate on the left one.
+        const QRectF area(14, 26, width() - 28, GraphHeight);
+        float top_ms = 10, top_mbps = 5;
+        for (const Row &row : rows)
+            for (int age = 0; age < Farside::Graph::Buckets; age++) {
+                const float v = graph.bucket(row.line, now, age);
+                if (row.line == Bitrate)
+                    top_mbps = qMax(top_mbps, v);
+                else
+                    top_ms = qMax(top_ms, v);
+            }
+        top_ms = roundUp(top_ms);
+        top_mbps = roundUp(top_mbps);
+
+        p.setFont(small);
+        p.setPen(muted);
+        p.drawText(QRectF(area.left(), 6, area.width(), 16), Qt::AlignLeft | Qt::AlignVCenter, tr("%1 Mbps").arg(top_mbps, 0, 'f', 0));
+        p.drawText(QRectF(area.left(), 6, area.width(), 16), Qt::AlignRight | Qt::AlignVCenter, tr("%1 ms").arg(top_ms, 0, 'f', 0));
+        p.drawText(QRectF(area.left(), area.bottom() + 2, area.width(), 16), Qt::AlignLeft | Qt::AlignVCenter, tr("20 s ago"));
+        p.drawText(QRectF(area.left(), area.bottom() + 2, area.width(), 16), Qt::AlignRight | Qt::AlignVCenter, tr("now"));
+        p.setPen(line);
+        for (int i = 0; i <= 4; i++) {
+            const qreal y = area.top() + area.height() * i / 4;
+            p.drawLine(QPointF(area.left(), y), QPointF(area.right(), y));
+        }
+        p.setClipRect(area.adjusted(0, -1, 0, 1));
+        for (const Row &row : rows) {
+            const float top = row.line == Bitrate ? top_mbps : top_ms;
+            QPainterPath path;
+            bool open = false;
+            for (int age = Farside::Graph::Buckets - 1; age >= 0; age--) {
+                const float v = graph.bucket(row.line, now, age);
+                if (v < 0) {
+                    open = false; // no value: the line has a gap here
+                    continue;
+                }
+                const QPointF point(area.right() - area.width() * age / (Farside::Graph::Buckets - 1),
+                                    area.bottom() - area.height() * qMin(v / top, 1.0f));
+                if (open)
+                    path.lineTo(point);
+                else
+                    path.moveTo(point);
+                open = true;
+            }
+            p.setPen(QPen(row.color, 1.4));
+            p.setBrush(Qt::NoBrush);
+            p.drawPath(path);
+        }
+        p.setClipping(false);
+
+        // Per line: now and the average.
+        qreal y = area.bottom() + 22;
+        const qreal left = 14, right = width() - 14, col = 62;
+        p.setFont(small);
+        p.setPen(muted);
+        p.drawText(QRectF(right - 2 * col, y, col, RowHeight), Qt::AlignRight | Qt::AlignVCenter, tr("now"));
+        p.drawText(QRectF(right - col, y, col, RowHeight), Qt::AlignRight | Qt::AlignVCenter, tr("average"));
+        y += RowHeight;
+        for (const Row &row : rows) {
+            p.setPen(Qt::NoPen);
+            p.setBrush(row.color);
+            p.drawRoundedRect(QRectF(left, y + RowHeight / 2 - 4, 8, 8), 2, 2);
+            p.setFont(text);
+            p.setPen(muted);
+            p.drawText(QRectF(left + 16, y, right - left - 16 - 2 * col, RowHeight), Qt::AlignLeft | Qt::AlignVCenter, row.name);
+            p.setFont(bold);
+            p.setPen(ink);
+            p.drawText(QRectF(right - 2 * col, y, col, RowHeight), Qt::AlignRight | Qt::AlignVCenter, number(graph.now(row.line, now)));
+            p.drawText(QRectF(right - col, y, col, RowHeight), Qt::AlignRight | Qt::AlignVCenter, number(graph.average(row.line, now)));
+            y += RowHeight;
         }
 
-        const int droppedFrames = owner ? owner->droppedFrames() : 0;
-        droppedFramesValue->setText(QString::number(droppedFrames));
-        droppedFramesRow->setVisible(droppedFrames > 0);
-
-        lostFramesRow->setVisible(hasSession);
-        if (hasSession)
-            lostFramesValue->setText(QString::number(session->GetFramesLost()));
-        else
-            lostFramesValue->clear();
+        // Numbers that are no line.
+        StreamSession *s = current_session;
+        const QString none = QStringLiteral("-");
+        const std::pair<QString, QString> facts[] = {
+            { tr("PS5 aims for"), s && s->GetRemoteTargetBitrate() > 0 ? tr("%1 Mbps").arg(s->GetRemoteTargetBitrate(), 0, 'f', 1) : none },
+            { tr("Packet loss"), s ? QStringLiteral("%1 %").arg(s->GetAveragePacketLoss() * 100.0, 0, 'f', 1) : none },
+            { tr("Pictures lost / dropped"), s ? QStringLiteral("%1 / %2").arg(s->GetFramesLost()).arg(owner ? owner->droppedFrames() : 0) : none },
+        };
+        y += 4;
+        for (const auto &fact : facts) {
+            p.setFont(text);
+            p.setPen(muted);
+            p.drawText(QRectF(left + 16, y, right - left - 16, RowHeight), Qt::AlignLeft | Qt::AlignVCenter, fact.first);
+            p.setFont(bold);
+            p.setPen(ink);
+            p.drawText(QRectF(left, y, right - left, RowHeight), Qt::AlignRight | Qt::AlignVCenter, fact.second);
+            y += RowHeight;
+        }
     }
 
 private:
+    enum Line { Late, RoundTrip, Receive, Decode, Wait, Sound, Bitrate };
+    static constexpr int PanelWidth = 400, GraphHeight = 150, RowHeight = 21;
+    // Scale labels, the graph, its time labels, the head of the list, 7 lines, 3 facts, the edges.
+    static constexpr int PanelHeight = 26 + GraphHeight + 22 + RowHeight * (1 + 7 + 3) + 4 + 12;
+
+    // The top of a scale: the next round number.
+    static float roundUp(float value)
+    {
+        for (float step : { 5.f, 10.f, 20.f, 50.f, 100.f, 200.f, 500.f, 1000.f, 2000.f, 5000.f })
+            if (value <= step)
+                return step;
+        return value;
+    }
+
+    static QString number(float value)
+    {
+        if (value < 0)
+            return QStringLiteral("-");
+        return QString::number(value, 'f', value < 100 ? 1 : 0);
+    }
+
     QPointer<QmlMainWindow> owner;
     QPointer<QmlBackend> backend;
     QPointer<StreamSession> current_session;
-    QWidget *bitrateRow = nullptr;
-    QWidget *queueRow = nullptr;
-    QWidget *pendingRow = nullptr;
-    QWidget *packetLossRow = nullptr;
-    QWidget *droppedFramesRow = nullptr;
-    QWidget *lostFramesRow = nullptr;
-    QLabel *bitrateValue = nullptr;
-    QLabel *queueDepthValue = nullptr;
-    QLabel *pendingAgeValue = nullptr;
-    QLabel *packetLossValue = nullptr;
-    QLabel *droppedFramesValue = nullptr;
-    QLabel *lostFramesValue = nullptr;
+    QTimer timer;
+    Farside::Graph graph;
+    QQueue<double> rtt_recent;
 };
 
 class DeferredPresentPacerThread final : public QThread
@@ -7777,6 +7853,13 @@ bool QmlMainWindow::event(QEvent *event)
                 session->HandleMouseReleaseEvent(static_cast<QMouseEvent*>(event));
             return true;
         }
+        QGuiApplication::sendEvent(quick_window, event);
+        break;
+    case QEvent::Wheel:
+        // Farside: the wheel scrolls the pages. It was never handed on, so only dragging the bar worked.
+        // During a stream it stays unused, as before.
+        if (session && !grab_input)
+            return true;
         QGuiApplication::sendEvent(quick_window, event);
         break;
     case QEvent::MouseButtonDblClick:

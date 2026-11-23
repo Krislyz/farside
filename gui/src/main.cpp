@@ -23,6 +23,7 @@ int main(int argc, char *argv[]) { return real_main(argc, argv); }
 #include <farsideqr.h>
 #include <farsideupdate.h>
 #include <farsideaudio.h>
+#include <farsidegraph.h>
 #include <cstring>
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -93,6 +94,8 @@ int real_main(int argc, char *argv[])
 				return update;
 			if(const int audio = Farside::selfTestAudio()) // 70 to 74: how much late sound is kept.
 				return audio;
+			if(const int graph = Farside::selfTestGraph()) // 80 to 84: the numbers behind the graph in the stream.
+				return graph;
 			return Farside::selfTestQr();
 		}
 	qRegisterMetaType<DiscoveryHost>();

@@ -60,6 +60,7 @@ static void stream_connection_takion_data_expect_streaminfo(ChiakiStreamConnecti
 static ChiakiErrorCode stream_connection_send_streaminfo_ack(ChiakiStreamConnection *stream_connection);
 static void stream_connection_takion_av(ChiakiStreamConnection *stream_connection, ChiakiTakionAVPacket *packet);
 static ChiakiErrorCode stream_connection_send_heartbeat(ChiakiStreamConnection *stream_connection);
+static ChiakiErrorCode stream_connection_send_periodic_timestamp_request(ChiakiStreamConnection *stream_connection);
 
 CHIAKI_EXPORT ChiakiErrorCode chiaki_stream_connection_init(ChiakiStreamConnection *stream_connection, ChiakiSession *session, double packet_loss_max)
 {
@@ -105,6 +106,15 @@ CHIAKI_EXPORT ChiakiErrorCode chiaki_stream_connection_init(ChiakiStreamConnecti
 	stream_connection->remote_disconnected = false;
 	stream_connection->remote_disconnect_reason = NULL;
 
+	stream_connection->remote_rtt_ms = 0;
+	stream_connection->remote_target_bitrate = 0;
+	err = chiaki_frame_timing_init(&stream_connection->frame_timing);
+	if(err != CHIAKI_ERR_SUCCESS)
+	{
+		chiaki_mutex_fini(&stream_connection->feedback_sender_mutex);
+		goto error_packet_stats;
+	}
+
 	return CHIAKI_ERR_SUCCESS;
 
 error_packet_stats:
@@ -131,6 +141,8 @@ CHIAKI_EXPORT void chiaki_stream_connection_fini(ChiakiStreamConnection *stream_
 	chiaki_packet_stats_fini(&stream_connection->packet_stats);
 
 	chiaki_mutex_fini(&stream_connection->feedback_sender_mutex);
+
+	chiaki_frame_timing_fini(&stream_connection->frame_timing);
 
 	chiaki_cond_fini(&stream_connection->state_cond);
 	chiaki_mutex_fini(&stream_connection->state_mutex);
@@ -310,6 +322,16 @@ CHIAKI_EXPORT ChiakiErrorCode chiaki_stream_connection_run(ChiakiStreamConnectio
 	chiaki_session_send_event(session, &event);
 	err = chiaki_mutex_lock(&stream_connection->state_mutex);
 	assert(err == CHIAKI_ERR_SUCCESS);
+
+	// Farside: ask a PS5 for its picture clock (see frametiming.h), only when the caller wants it.
+	if(session->connect_info.frame_timing && chiaki_target_is_ps5(session->target))
+	{
+		err = stream_connection_send_periodic_timestamp_request(stream_connection);
+		if(err != CHIAKI_ERR_SUCCESS)
+			CHIAKI_LOGW(stream_connection->log, "StreamConnection failed to ask for periodic timestamps");
+		else
+			CHIAKI_LOGI(stream_connection->log, "StreamConnection asked the console for periodic timestamps");
+	}
 
 	while(true)
 	{
@@ -673,6 +695,12 @@ static void stream_connection_takion_data_idle(ChiakiStreamConnection *stream_co
 	tkproto_TakionMessage msg;
 	memset(&msg, 0, sizeof(msg));
 
+	// Farside: the console's picture clock list, if this message is one (see frametiming.h).
+	uint8_t stamps[4096];
+	ChiakiPBDecodeBuf stamps_buf = { sizeof(stamps), 0, stamps };
+	msg.periodic_timestamp_payload.periodic_ts_info.funcs.decode = chiaki_pb_decode_buf;
+	msg.periodic_timestamp_payload.periodic_ts_info.arg = &stamps_buf;
+
 	pb_istream_t stream = pb_istream_from_buffer(buf, buf_size);
 	bool r = pb_decode(&stream, tkproto_TakionMessage_fields, &msg);
 	if(!r)
@@ -693,6 +721,10 @@ static void stream_connection_takion_data_idle(ChiakiStreamConnection *stream_co
 	case tkproto_TakionMessage_PayloadType_CONNECTIONQUALITY:
 	{
 		tkproto_ConnectionQualityPayload q = msg.connection_quality_payload;
+		if(q.has_rtt)
+			stream_connection->remote_rtt_ms = q.rtt;
+		if(q.has_target_bitrate)
+			stream_connection->remote_target_bitrate = q.target_bitrate;
 		CHIAKI_LOGV(
 			stream_connection->log,
 			"StreamConnection received connection quality: target_bitrate=%d, "
@@ -706,6 +738,9 @@ static void stream_connection_takion_data_idle(ChiakiStreamConnection *stream_co
 		chiaki_stream_stats_reset(&stream_connection->video_receiver->frame_processor.stream_stats);
 		break;
 	}
+	case tkproto_TakionMessage_PayloadType_PERIODICTIMESTAMP:
+		chiaki_frame_timing_stamps(&stream_connection->frame_timing, stamps, stamps_buf.size);
+		break;
 	case tkproto_TakionMessage_PayloadType_CORRUPTFRAME:
 		CHIAKI_LOGE(stream_connection->log, "StreamConnection received corrupt frame from %d to %d",
 			msg.corrupt_payload.start, msg.corrupt_payload.end);
@@ -1254,6 +1289,29 @@ static ChiakiErrorCode stream_connection_send_heartbeat(ChiakiStreamConnection *
 	if(!pbr)
 	{
 		CHIAKI_LOGE(stream_connection->log, "StreamConnection heartbeat protobuf encoding failed");
+		return CHIAKI_ERR_UNKNOWN;
+	}
+
+	return chiaki_takion_send_message_data(&stream_connection->takion, 1, 1, buf, stream.bytes_written, NULL);
+}
+
+// Farside: ServerSettings with send_periodic_timestamp. A PS5 then sends a PeriodicTimestamp message about
+// once a second (seen in a real stream on 2026-11-23; chiaki-ng never sent this).
+static ChiakiErrorCode stream_connection_send_periodic_timestamp_request(ChiakiStreamConnection *stream_connection)
+{
+	tkproto_TakionMessage msg = { 0 };
+	msg.type = tkproto_TakionMessage_PayloadType_SERVERSETTINGS;
+	msg.has_server_settings_payload = true;
+	msg.server_settings_payload.has_send_periodic_timestamp = true;
+	msg.server_settings_payload.send_periodic_timestamp = true;
+
+	uint8_t buf[0x10];
+
+	pb_ostream_t stream = pb_ostream_from_buffer(buf, sizeof(buf));
+	bool pbr = pb_encode(&stream, tkproto_TakionMessage_fields, &msg);
+	if(!pbr)
+	{
+		CHIAKI_LOGE(stream_connection->log, "StreamConnection periodic timestamp request protobuf encoding failed");
 		return CHIAKI_ERR_UNKNOWN;
 	}
 

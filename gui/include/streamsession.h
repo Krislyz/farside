@@ -96,6 +96,7 @@ class SdeckHapticsWorker;
 		bool keyboard_controller_enabled;
 		bool mouse_touch_enabled;
 		bool enable_dualsense;
+		bool frame_timing; // Farside: ask the PS5 for its picture clock, for the graph (Stream statistics on)
 		bool auto_regist;
 		float haptic_override;
 		ChiakiDisableAudioVideo audio_video_disabled;
@@ -264,6 +265,7 @@ class StreamSession : public QObject
 		uint64_t audio_timing_last_us = 0;
 		unsigned int audio_timing_frames = 0, audio_timing_late = 0, audio_timing_longest_ms = 0;
 		unsigned int audio_timing_empty = 0, audio_timing_queue_max_ms = 0, audio_timing_dropped_ms = 0;
+		QAtomicInt audio_waiting_ms = -1; // sound waiting to be played when the last frame came; -1 before the first
 		QMutex audio_out_drain_mutex;
 		QWaitCondition audio_out_drain_wait;
 		QThread *audio_out_drain_thread = nullptr;
@@ -353,6 +355,12 @@ class StreamSession : public QObject
 		QString GetHost() { return host; }
 		bool GetConnected() { return connected; }
 		double GetMeasuredBitrate()	{ return measured_bitrate; }
+		// Farside: for the graph in the stream (qmlmainwindow.cpp, StatsOverlayWidget).
+		size_t ReadFrameTiming(ChiakiFrameTimingSample *samples, size_t max) { return chiaki_frame_timing_read(&session.stream_connection.frame_timing, samples, max); }
+		double GetRemoteRttMs()	{ return session.stream_connection.remote_rtt_ms; }
+		double GetRemoteTargetBitrate()	{ return session.stream_connection.remote_target_bitrate / 1000000.0; }
+		double GetDecodeMs()	{ return ffmpeg_decoder ? ffmpeg_decoder->farside_decode_ms : -1; }
+		int GetAudioWaitingMs()	{ return audio_waiting_ms.loadRelaxed(); }
 		double GetAveragePacketLoss()	{ return average_packet_loss; }
 		quint64 DecoderFlushGeneration() const { return decoder_flush_generation.loadRelaxed(); }
 		int GetFramesLost()		{ return frames_lost; }
