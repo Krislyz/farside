@@ -10,7 +10,7 @@ Window {
     minimumWidth: 840
     minimumHeight: 525
     visible: true
-    title: qsTr("Farside Client")
+    title: qsTr("Farside Remote")
     color: "#0b0b10"
 
     FarsideClientShell {

@@ -30,10 +30,22 @@ QtObject {
     }
     readonly property real mbps: kbps > 0 ? kbps / 1000 : autoBitrate[resolution - 1]
     readonly property string bitrateText: kbps > 0 ? qsTr("%1 Mbps").arg(mbps) : qsTr("Auto (%1 Mbps)").arg(mbps)
-    // What the chosen bitrate costs in response time. Bigger frames take longer to send and to decode.
-    // ponytail: fixed steps by Mbps; replace with a measured delay if chiaki-ng ever exposes one.
-    readonly property string latencyHint: mbps <= 10 ? qsTr("fastest") : mbps <= 20 ? qsTr("fast") : mbps <= 50 ? qsTr("slower") : qsTr("slowest")
-    readonly property bool quick: mbps <= 20
+    // What these settings cost in time, in ms: on average half the time between two pictures until the
+    // PS5 takes the next one (500 / fps), plus sending one picture of the full bitrate over a wired
+    // gigabit network (1 Mbit takes 1 ms there, and a picture is mbps / fps Mbit).
+    // ponytail: worked out from the settings alone, nothing measured; the PS5's capture and encode time,
+    // decoding and the game are not in it. Replace with measured numbers once Farside can measure them.
+    readonly property real estimatedMs: 500 / fps + mbps / fps
+    // How good the picture can look: from its size and the bits each pixel gets at the full bitrate.
+    // ponytail: steps set by eye for h265; h264 needs more bits for the same look. Tune after real use.
+    readonly property var resolutionPixels: [640 * 360, 960 * 540, 1280 * 720, 1920 * 1080]
+    readonly property real bitsPerPixel: mbps * 1000000 / (resolutionPixels[resolution - 1] * fps)
+    readonly property var qualityNames: [qsTr("Potato"), qsTr("Baked potato"), qsTr("Crunchy"), qsTr("Decent"), qsTr("Good"), qsTr("Great"), qsTr("GOD TIER")]
+    // The small pictures are potatoes whatever the bitrate; GOD TIER takes 1080p.
+    readonly property int qualityRank: resolution <= 2 ? resolution - 1
+                                     : bitsPerPixel < 0.06 ? 2 : bitsPerPixel < 0.11 ? 3 : bitsPerPixel < 0.2 ? 4
+                                     : bitsPerPixel < 0.4 || resolution < 4 ? 5 : 6
+    readonly property string qualityName: qualityNames[qualityRank]
     // The bitrate is the most the PS5 may send, not what it sends: it is named "max" wherever it shows.
     readonly property string summary: presetNames[preset] + " · " + resolutionShort[resolution - 1] + " · " + fps + " fps · "
                                       + (kbps > 0 ? qsTr("max %1 Mbps").arg(mbps) : qsTr("max %1 Mbps (auto)").arg(mbps))

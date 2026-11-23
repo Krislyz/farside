@@ -272,7 +272,7 @@ Item {
 
                 Tick {
                     key: "hudResponse"
-                    text: qsTr("Response label next to the bitrate")
+                    text: qsTr("Estimated ms and quality name in the bar at the top of the stream")
                 }
                 Tick {
                     key: "showStreamStats"

@@ -1,7 +1,9 @@
-; Farside Client Setup (Inno Setup 6). Built by farside/package.sh:
-;   ISCC /DVersion=<x.y.z> /DSource=<folder with FarsideClient.exe and its DLLs> client.iss
+; Farside Remote Setup (Inno Setup 6). Built by farside/package.sh:
+;   ISCC /DVersion=<x.y.z> /DSource=<folder with FarsideRemote.exe and its DLLs> client.iss
+; Until 0.1.5.2 the program was called Farside Client (FarsideClient.exe): same AppId, so this Setup
+; updates such an install where it is, and removes the old program file and shortcuts.
 ; It installs the program, usbipd-win (which shares the controller) and shares the DualSense that is
-; plugged in. Removing Farside Client undoes all three.
+; plugged in. Removing Farside Remote undoes all three.
 #define Usbipd "5.3.0"
 #define UsbipdUrl "https://github.com/dorssel/usbipd-win/releases/download/v5.3.0/usbipd-win_5.3.0_x64.msi"
 ; SHA-256 of that file. The download is refused when it differs.
@@ -9,18 +11,18 @@
 
 [Setup]
 AppId={{5A173446-28CA-4864-B17D-6E24F9FA6BC5}
-AppName=Farside Client
+AppName=Farside Remote
 AppVersion={#Version}
 AppPublisher=Moonthia
 AppPublisherURL=https://github.com/Krislyz/farside
 AppSupportURL=https://github.com/Krislyz/farside/issues
-DefaultDirName={autopf}\Farside Client
+DefaultDirName={autopf}\Farside Remote
 DisableProgramGroupPage=yes
 LicenseFile={#Source}\COPYING
-OutputBaseFilename=FarsideClient-Setup
+OutputBaseFilename=FarsideRemote-Setup
 SetupIconFile=..\..\gui\farside.ico
-UninstallDisplayIcon={app}\FarsideClient.exe
-UninstallDisplayName=Farside Client
+UninstallDisplayIcon={app}\FarsideRemote.exe
+UninstallDisplayName=Farside Remote
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -38,12 +40,18 @@ Name: desktopicon; Description: "Desktop shortcut"
 
 [Files]
 Source: "{#Source}\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
-; Kept so that removing Farside Client can remove usbipd-win again.
+; Kept so that removing Farside Remote can remove usbipd-win again.
 Source: "{tmp}\usbipd-win.msi"; DestDir: "{app}"; Flags: external; Tasks: usbipd
 
+[InstallDelete]
+; The program file and the shortcuts under the name the program had until 0.1.5.2.
+Type: files; Name: "{app}\FarsideClient.exe"
+Type: files; Name: "{autoprograms}\Farside Client.lnk"
+Type: files; Name: "{autodesktop}\Farside Client.lnk"
+
 [Icons]
-Name: "{autoprograms}\Farside Client"; Filename: "{app}\FarsideClient.exe"
-Name: "{autodesktop}\Farside Client"; Filename: "{app}\FarsideClient.exe"; Tasks: desktopicon
+Name: "{autoprograms}\Farside Remote"; Filename: "{app}\FarsideRemote.exe"
+Name: "{autodesktop}\Farside Remote"; Filename: "{app}\FarsideRemote.exe"; Tasks: desktopicon
 
 [Registry]
 ; The program's own switches (log on/off). Nothing is written here; the key goes when the program goes.
@@ -54,9 +62,9 @@ Filename: "msiexec.exe"; Parameters: "/i ""{app}\usbipd-win.msi"" /qn /norestart
 ; DualSense, then DualSense Edge. The one that is not plugged in just fails. Not during an update.
 Filename: "{code:UsbipdExe}"; Parameters: "bind --force --hardware-id 054c:0ce6"; StatusMsg: "Sharing the controller..."; Flags: runhidden; Tasks: share; Check: UsbipdFound and not WizardSilent
 Filename: "{code:UsbipdExe}"; Parameters: "bind --force --hardware-id 054c:0df2"; Flags: runhidden; Tasks: share; Check: UsbipdFound and not WizardSilent
-Filename: "{app}\FarsideClient.exe"; Description: "Start Farside Client"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\FarsideRemote.exe"; Description: "Start Farside Remote"; Flags: nowait postinstall skipifsilent
 ; An update started from inside the program runs silently: start the program again, as the user.
-Filename: "{app}\FarsideClient.exe"; Flags: nowait runasoriginaluser; Check: WizardSilent
+Filename: "{app}\FarsideRemote.exe"; Flags: nowait runasoriginaluser; Check: WizardSilent
 
 [UninstallRun]
 ; Give the controller back to Windows, then remove usbipd-win if this Setup installed it.
@@ -90,6 +98,7 @@ var
 begin
   for I := 1 to 75 do
   begin
+    // The name of the mutex is from before the renaming; a version that is still ending holds it.
     if not CheckForMutexes('FarsideClientRunning') then
       Break;
     Sleep(200);
@@ -105,12 +114,12 @@ end;
 
 function InitializeSetup: Boolean;
 begin
-  Result := ProgramEnded('Farside Client is running. Close it, then click OK.');
+  Result := ProgramEnded('Farside Remote is running. Close it, then click OK.');
 end;
 
 function InitializeUninstall: Boolean;
 begin
-  Result := ProgramEnded('Farside Client is running. Close it, then click OK.');
+  Result := ProgramEnded('Farside Remote is running. Close it, then click OK.');
 end;
 
 var

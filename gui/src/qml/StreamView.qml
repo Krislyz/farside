@@ -422,8 +422,8 @@ Item {
             }
             Label {
                 visible: farsideOptions.hudResponse
-                text: qsTr("response: %1").arg(choice.latencyHint)
-                color: choice.quick ? "#3ddc97" : "#ff8a3d"
+                text: qsTr("est. %1 ms · %2").arg(choice.estimatedMs.toFixed(1)).arg(choice.qualityName)
+                color: "#a3a3b5"
                 font.pixelSize: 12
                 Layout.rightMargin: 6
             }

@@ -1,6 +1,6 @@
 #!/bin/bash
-# Builds Farside Client on Arch Linux, from source. Farside Client shares this PC's controller with a
-# Farside Host (a Windows PC); that is all it does.
+# Builds Farside Remote on Arch Linux, from source. Farside Remote shares this PC's controller with a
+# Farside (a Windows PC); that is all it does.
 #
 #   ./build-arch.sh
 #
@@ -8,7 +8,7 @@
 #   1. installs the packages the build needs with pacman (asks for your password)
 #   2. fetches Farside's source from GitHub
 #   3. builds the QR code library zxing-cpp into a folder of its own (nothing goes into /usr)
-#   4. builds Farside Client
+#   4. builds Farside Remote
 #   5. fetches the tunnel program dumbpipe from its GitHub release and checks its SHA-256
 # Everything lands in ~/farside-build (or $FARSIDE_BUILD_DIR). To remove it all: delete that folder.
 # The packages from step 1 stay; pacman lists them above the question before it installs.
@@ -23,7 +23,7 @@ mkdir -p "$work"
 
 echo "== 1/5 packages"
 # The build files of the whole source tree are made, so the list is the one of chiaki-ng; only
-# Farside Client is compiled.
+# Farside Remote is compiled.
 sudo pacman -S --needed base-devel git cmake ninja python python-protobuf protobuf \
 	qt6-base qt6-declarative qt6-svg qt6-wayland ffmpeg libplacebo sdl2-compat opus openssl hidapi json-c \
 	miniupnpc curl speexdsp fftw libevent libevdev lcms2 vulkan-headers vulkan-icd-loader usbip
@@ -49,7 +49,7 @@ if [ ! -f "$work/prefix/lib/cmake/ZXing/ZXingConfig.cmake" ] && [ ! -f "$work/pr
 	cmake --install "$work/zxing/build"
 fi
 
-echo "== 4/5 Farside Client"
+echo "== 4/5 Farside Remote"
 # nanopb's generator leaves a file made for one protobuf version behind; upstream's build removes it too
 rm -f "$src/third-party/nanopb/generator/proto/nanopb_pb2.py"
 cmake -S "$src" -B "$src/build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$work/prefix" \
@@ -68,11 +68,11 @@ if [ ! -x "$bin/dumbpipe" ]; then
 fi
 
 echo "== self-test"
-if "$bin/FarsideClient" --farside-selftest; then
+if "$bin/FarsideRemote" --farside-selftest; then
 	echo "self-test passed"
 else
 	echo "self-test FAILED at check $? (put this number in the issue)"
 fi
 echo
-echo "Start Farside Client with:  $bin/FarsideClient"
+echo "Start Farside Remote with:  $bin/FarsideRemote"
 echo "Share the controller first:  sudo $src/farside/linux/share-controller.sh"

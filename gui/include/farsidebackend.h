@@ -73,6 +73,9 @@ class FarsideBackend : public QObject
 	// Which releases count as updates: "stable" (full releases) or "alpha" (also the ones marked
 	// "pre-release" on GitHub: early versions that may break).
 	Q_PROPERTY(QString updateChannel READ updateChannel WRITE setUpdateChannel NOTIFY updateChannelChanged)
+	// True while the user is asked which channel to follow: this program is an alpha version that was
+	// installed by hand while the channel is "stable" (see Farside::askChannel). answerChannel ends it.
+	Q_PROPERTY(bool channelQuestion READ channelQuestion NOTIFY channelQuestionChanged)
 
 	public:
 		explicit FarsideBackend(QObject *parent = nullptr);
@@ -103,6 +106,7 @@ class FarsideBackend : public QObject
 		QString updateVersion() const { return update.version; }
 		QString updateState() const { return update_state; }
 		QString updateChannel() const { return update_channel; }
+		bool channelQuestion() const { return channel_question; }
 		void setUpdateChannel(const QString &channel);
 
 		Q_INVOKABLE void newCode();
@@ -132,6 +136,8 @@ class FarsideBackend : public QObject
 		Q_INVOKABLE void checkForUpdate(bool by_user = false);
 		// Ends this program and starts the fetched Setup program, which installs and starts it again.
 		Q_INVOKABLE void installUpdate();
+		// The user's answer to channelQuestion: keep getting alpha versions, or full releases only.
+		Q_INVOKABLE void answerChannel(bool stay_on_alpha);
 		// Client: has usbipd-win share the DualSense that is plugged in. Windows asks for administrator rights.
 		Q_INVOKABLE void shareController();
 
@@ -148,6 +154,7 @@ class FarsideBackend : public QObject
 		void toolsChanged();
 		void updateChanged();
 		void updateChannelChanged();
+		void channelQuestionChanged();
 		// Empty text = paired. Otherwise a sentence for the user.
 		void pairFinished(const QString &problem);
 
@@ -178,4 +185,5 @@ class FarsideBackend : public QObject
 		Farside::Update update;
 		QString update_state, update_file;
 		QString update_channel = QStringLiteral("stable");
+		bool channel_question = false;
 };

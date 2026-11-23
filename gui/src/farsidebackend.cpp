@@ -77,6 +77,8 @@ FarsideBackend::FarsideBackend(QObject *parent) : QObject(parent), role_(detectR
 	// A sandboxed test run always starts on stable and never stores the choice (as with "direct" above).
 	if(sandbox().isEmpty() && settings.value(QStringLiteral("farside/updateChannel")).toString() == QLatin1String("alpha"))
 		update_channel = QStringLiteral("alpha");
+	// For a look at the question on screen: a sandboxed test run shows it when asked to.
+	channel_question = !sandbox().isEmpty() && qEnvironmentVariableIsSet("FARSIDE_ASK_CHANNEL");
 	update_timer.setInterval(6 * 60 * 60 * 1000);
 	connect(&update_timer, &QTimer::timeout, this, [this] { checkForUpdate(); });
 	if(sandbox().isEmpty() && settings.value(QStringLiteral("farside/updates"), true).toBool())
@@ -446,8 +448,25 @@ void FarsideBackend::setUpdateChannel(const QString &channel)
 		return;
 	update_channel = wanted;
 	if(sandbox().isEmpty())
-		QSettings().setValue(QStringLiteral("farside/updateChannel"), wanted);
+	{
+		QSettings settings;
+		settings.setValue(QStringLiteral("farside/updateChannel"), wanted);
+		// The user chose a channel in this version: no question about it afterwards.
+		settings.setValue(QStringLiteral("farside/channelAsked"), version());
+	}
 	emit updateChannelChanged();
+}
+
+void FarsideBackend::answerChannel(bool stay_on_alpha)
+{
+	if(!channel_question)
+		return;
+	channel_question = false;
+	emit channelQuestionChanged();
+	if(sandbox().isEmpty())
+		QSettings().setValue(QStringLiteral("farside/channelAsked"), version());
+	setUpdateChannel(stay_on_alpha ? QStringLiteral("alpha") : QStringLiteral("stable"));
+	log(QStringLiteral("update channel chosen for an alpha version: %1").arg(update_channel));
 }
 
 void FarsideBackend::setUpdate(const Farside::Update &found, const QString &state)
@@ -495,7 +514,15 @@ void FarsideBackend::checkForUpdate(bool by_user)
 		// Offline, or GitHub is busy: the next look is in six hours or at the next start.
 		if(answer->error() != QNetworkReply::NoError)
 			return answerUser(QStringLiteral("failed"));
-		const Farside::Update found = Farside::pickUpdate(answer->readAll(), version(), QStringLiteral(FARSIDE_SETUP_NAME), alpha);
+		const QByteArray list = answer->readAll();
+		// An alpha version that did not come through the alpha channel: ask which channel to follow.
+		if(!channel_question && Farside::askChannel(Farside::isAlphaRelease(list, version()), update_channel,
+			QSettings().value(QStringLiteral("farside/channelAsked")).toString(), version()))
+		{
+			channel_question = true;
+			emit channelQuestionChanged();
+		}
+		const Farside::Update found = Farside::pickUpdate(list, version(), QStringLiteral(FARSIDE_SETUP_NAME), alpha);
 		if(found.version.isEmpty())
 			return answerUser(QStringLiteral("current"));
 		fetchUpdate(found);

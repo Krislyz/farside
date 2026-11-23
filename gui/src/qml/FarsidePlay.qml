@@ -395,8 +395,28 @@ Item {
                 }
                 FText {
                     width: parent.width
-                    text: qsTr("Used by the next stream you start. Max bitrate is a ceiling: the PS5 sends less when the picture needs less. Response: %1; bigger pictures take longer to send and to decode.").arg(choice.latencyHint)
+                    text: qsTr("Used by the next stream you start. Max bitrate is a ceiling: the PS5 sends less when the picture needs less.")
                     color: shell.muted
+                    wrapMode: Text.WordWrap
+                }
+                Row {
+                    spacing: 28
+
+                    FText {
+                        text: qsTr("Estimated ms: %1").arg(choice.estimatedMs.toFixed(1))
+                        font.weight: Font.DemiBold
+                    }
+                    FText {
+                        text: qsTr("Quality: %1").arg(choice.qualityName)
+                        font.weight: Font.DemiBold
+                        color: choice.qualityRank === 6 ? shell.accent : shell.ink
+                    }
+                }
+                FText {
+                    width: parent.width
+                    text: qsTr("Estimated ms is what these settings add on a wired home network: the wait for the PS5's next picture plus sending the biggest one. The PS5 and the game come on top. 60 fps and a lower max bitrate mean fewer ms; a higher max bitrate means a better picture.")
+                    color: shell.muted
+                    font.pixelSize: 13
                     wrapMode: Text.WordWrap
                 }
             }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LicenseRef-AGPL-3.0-only-OpenSSL
-// Farside Client: pairs with a Farside Host and shares this PC's controller with it. That is all it does:
+// Farside Remote ("client" in the code): pairs with a Farside and shares this PC's controller with it. That is all it does:
 // the stream, the PS5 and everything of the receiving side belong to Farside Host (main.cpp).
 #include <farsidebackend.h>
 #include <farsidelink.h>
@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 	QGuiApplication::setApplicationName(QStringLiteral("Chiaki"));
 	QGuiApplication::setApplicationVersion(QStringLiteral(FARSIDE_VERSION));
 	QGuiApplication app(argc, argv);
-	QGuiApplication::setApplicationDisplayName(QStringLiteral("Farside Client"));
+	QGuiApplication::setApplicationDisplayName(QStringLiteral("Farside Remote"));
 	QGuiApplication::setWindowIcon(QIcon(QStringLiteral(":/icons/farside.svg")));
 #ifdef Q_OS_WIN
 	// Setup looks for this name and waits for the program to end before it replaces the files.

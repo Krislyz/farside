@@ -1,24 +1,24 @@
 Farside is free software under the GNU Affero General Public License, version 3, with the OpenSSL
 exception of chiaki-ng (see COPYING). Its source code: https://github.com/Krislyz/farside
 
-Farside Host is built on chiaki-ng 1.10.1 (https://github.com/streetpea/chiaki-ng), which is built on Chiaki.
+Farside is built on chiaki-ng 1.10.1 (https://github.com/streetpea/chiaki-ng), which is built on Chiaki.
 Farside is not affiliated with Sony Interactive Entertainment. "PlayStation", "PS5" and "DualSense" are
 trademarks of Sony Interactive Entertainment.
 
 Programs and libraries that come with Farside, each under its own licence:
 
-  chiaki-ng / Chiaki           AGPL-3.0-only with OpenSSL exception   Farside Host
+  chiaki-ng / Chiaki           AGPL-3.0-only with OpenSSL exception   Farside
   Qt 6                         LGPL-3.0                               both
   zxing-cpp 3.1.1              Apache-2.0                             both (QR codes for pairing)
   OpenSSL 3                    Apache-2.0                             both
   dumbpipe 0.40.2 (iroh)       MIT or Apache-2.0                      both (the tunnel between the PCs)
   Inter, Space Grotesk         SIL Open Font License 1.1              both (typefaces)
-  FFmpeg                       GPL-3.0-or-later (this build)          Farside Host
-  libplacebo                   LGPL-2.1-or-later                      Farside Host
-  SDL 3, sdl2-compat           zlib                                   Farside Host
+  FFmpeg                       GPL-3.0-or-later (this build)          Farside
+  libplacebo                   LGPL-2.1-or-later                      Farside
+  SDL 3, sdl2-compat           zlib                                   Farside
   Opus, SpeexDSP, libevent,
   miniupnpc, hidapi, curl,
-  json-c, Little CMS, nanopb   BSD, MIT, curl and zlib style licences Farside Host
+  json-c, Little CMS, nanopb   BSD, MIT, curl and zlib style licences Farside
 
 The other DLL files beside the program are run-time libraries from the MSYS2 MINGW64 packages they
 were built with (https://packages.msys2.org), each under the licence its package states.
@@ -26,7 +26,7 @@ were built with (https://packages.msys2.org), each under the licence its package
 Programs Farside uses but does not contain:
 
   usbipd-win (GPL-3.0, https://github.com/dorssel/usbipd-win): shares the controller on the PC you play
-  from. Farside Client's Setup fetches it from that project's own release page and installs it.
+  from. Farside Remote's Setup fetches it from that project's own release page and installs it.
 
-  usbip-win2 (GPL-3.0, https://github.com/vadimgrn/usbip-win2): receives the controller on the Host PC.
+  usbip-win2 (GPL-3.0, https://github.com/vadimgrn/usbip-win2): receives the controller on the home PC.
   You install it yourself.

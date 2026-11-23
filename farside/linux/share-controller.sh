@@ -1,5 +1,5 @@
 #!/bin/bash
-# Shares this PC's DualSense through usbip, so the Farside Host can take it.
+# Shares this PC's DualSense through usbip, so the Farside can take it.
 #   sudo ./share-controller.sh         share it (plug it in with a USB cable first)
 #   sudo ./share-controller.sh stop    give it back to this PC
 # While it is shared, this PC cannot use the controller itself.

@@ -12,12 +12,12 @@ BEGIN
         BLOCK "080904b0"
         BEGIN
             VALUE "CompanyName", "Moonthia"
-            VALUE "FileDescription", "Farside Client"
+            VALUE "FileDescription", "Farside Remote"
             VALUE "FileVersion", "@FARSIDE_VERSION@\0"
-            VALUE "InternalName", "FarsideClient"
+            VALUE "InternalName", "FarsideRemote"
             VALUE "LegalCopyright", "AGPLv3. Farside: Moonthia 2026"
-            VALUE "OriginalFilename", "FarsideClient.exe"
-            VALUE "ProductName", "Farside Client"
+            VALUE "OriginalFilename", "FarsideRemote.exe"
+            VALUE "ProductName", "Farside Remote"
             VALUE "ProductVersion", "@FARSIDE_VERSION@\0"
         END
     END

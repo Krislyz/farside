@@ -43,7 +43,7 @@ Item {
             case "Connecting": return qsTr("Looking for %1.").arg(peer);
             case "Host busy": return qsTr("%1 is linked to another PC.").arg(peer);
             case "Stopped": return Farside.role === "none" ? qsTr("usbipd-win is not installed on this PC. See Setup.") : "";
-            default: return qsTr("Enter the pairing code from Farside Host on the Pair tab.");
+            default: return qsTr("Enter the pairing code that Farside on your home PC shows, on the Pair tab.");
             }
         }
         switch (Farside.state) {
@@ -413,7 +413,7 @@ Item {
 
             FText {
                 Layout.fillWidth: true
-                text: qsTr("On the other PC, open Farside Client and go to Pair. Paste a screenshot of this QR code there, or enter the code. It works once.")
+                text: qsTr("On the other PC, open Farside Remote and go to Pair. Paste a screenshot of this QR code there, or enter the code. It works once.")
                 color: shell.muted
                 wrapMode: Text.WordWrap
             }
@@ -605,7 +605,7 @@ Item {
             }
 
             FText {
-                text: qsTr("From anywhere: enter the pairing code from Farside Host.")
+                text: qsTr("From anywhere: enter the pairing code that Farside on your home PC shows.")
                 color: shell.muted
             }
 
@@ -841,7 +841,7 @@ Item {
             FText {
                 Layout.fillWidth: true
                 visible: !shell.isClient
-                text: qsTr("usbip-win2 is installed on its own: github.com/vadimgrn/usbip-win2. Restart Farside Host afterwards.")
+                text: qsTr("usbip-win2 is installed on its own: github.com/vadimgrn/usbip-win2. Restart Farside afterwards.")
                 color: shell.muted
                 wrapMode: Text.WordWrap
             }
@@ -852,7 +852,7 @@ Item {
                 visible: shell.isClient
                 text: Farside.tools.usbipd
                     ? qsTr("To share the controller: plug the DualSense in with a USB cable, then click Share controller. Windows asks for permission. While it is shared, Windows on this PC cannot use the controller itself.")
-                    : qsTr("usbipd-win is missing. Run the Farside Client Setup program again; it installs it.")
+                    : qsTr("usbipd-win is missing. Run the Farside Remote Setup program again; it installs it.")
                 color: shell.muted
                 wrapMode: Text.WordWrap
             }

@@ -24,7 +24,17 @@ struct Update
 // newer than 0.1.5 and older than 0.1.6); a tag with anything else in it is not a version.
 Update pickUpdate(const QByteArray &json, const QString &current, const QString &asset, bool alpha = false);
 
-// Checks 50 to 63 of the self-test.
+// True when GitHub's list of releases marks the release of version current as "pre-release": this
+// program is an alpha version. A draft, a version that is not listed and an unreadable answer: false.
+bool isAlphaRelease(const QByteArray &json, const QString &current);
+
+// Whether to ask the user which channel to follow from now on. That is the case when this program is
+// an alpha version although the channel is "stable": it was installed by hand, with its Setup program
+// (an update never brings an alpha version to the stable channel). Asked once per version: asked is
+// the version the user last answered for, or changed the channel by hand in.
+bool askChannel(bool running_alpha, const QString &channel, const QString &asked, const QString &current);
+
+// Checks 50 to 67 of the self-test.
 int selfTestUpdate();
 
 } // namespace Farside

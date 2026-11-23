@@ -1,6 +1,6 @@
-Farside Client for Arch Linux
+Farside Remote for Arch Linux
 =============================
-Farside Client is for the PC you play from. It shares this PC's DualSense with a Farside Host
+Farside Remote is for the PC you play from. It shares this PC's DualSense with a Farside
 (a Windows PC) and does nothing else.
 
 NOT TESTED. These scripts were written on Windows and have never run on Linux. The same source
@@ -21,9 +21,9 @@ https://github.com/Krislyz/farside, zxing-cpp 3.1.1 and dumbpipe 0.40.2 from Git
 Use
 ---
 1. Plug the DualSense in with a USB cable, then:    sudo ./share-controller.sh
-2. Start:    ~/farside-build/farside/build/gui/FarsideClient
-3. Pair tab: paste the code from the Host (or a screenshot of its QR code), click Pair, then click
-   Accept on the Host.
-   Or without the tunnel: turn "Direct connections" on at the Host's Pair page, then pick the Host
+2. Start:    ~/farside-build/farside/build/gui/FarsideRemote
+3. Pair tab: paste the code from Farside (or a screenshot of its QR code), click Pair, then click
+   Accept in Farside.
+   Or without the tunnel: turn "Direct connections" on at Farside's Pair page, then pick the home PC
    under "On this network" or type its address, and compare the number both PCs show.
 4. To take the controller back:    sudo ./share-controller.sh stop

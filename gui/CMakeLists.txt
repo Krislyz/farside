@@ -173,12 +173,15 @@ set_target_properties(chiaki PROPERTIES
 set_target_properties(chiaki PROPERTIES OUTPUT_NAME Farside)
 
 # Farside: the version the updater compares with the newest GitHub release (tag v<version>), and the
-# name of the Setup program it fetches from that release. Farside Host is this target, chiaki.
+# name of the Setup program it fetches from that release. Farside is this target, chiaki.
 # (A test of the updater builds an older number: -DFARSIDE_VERSION=0.0.1.)
-set(FARSIDE_VERSION 0.1.5.2 CACHE STRING "Version of Farside Host and Farside Client")
-target_compile_definitions(chiaki PRIVATE FARSIDE_VERSION="${FARSIDE_VERSION}" FARSIDE_SETUP_NAME="FarsideHost-Setup.exe")
+# Names: the program at home is "Farside" (the code calls it the host), the one on the PC played from
+# is "Farside Remote" (the code and the file names call it the client). Until 0.1.5.2 they were
+# "Farside Host" and "Farside Client"; farside/package.sh still adds their Setup names for those versions.
+set(FARSIDE_VERSION 0.1.5.3 CACHE STRING "Version of Farside and Farside Remote")
+target_compile_definitions(chiaki PRIVATE FARSIDE_VERSION="${FARSIDE_VERSION}" FARSIDE_SETUP_NAME="Farside-Setup.exe")
 
-# Farside Client: the program for the PCs played from. It pairs with a Farside Host and shares this PC's
+# Farside Remote: the program for the PCs played from. It pairs with a Farside and shares this PC's
 # controller with it. Nothing of the stream, the PS5 or the receiving side's pages is compiled into it.
 find_package(OpenSSL REQUIRED)
 set(FARSIDE_CLIENT_RC "")
@@ -209,12 +212,12 @@ add_executable(farside-client WIN32
 	src/qml/client.qrc
 	${FARSIDE_CLIENT_RC})
 target_include_directories(farside-client PRIVATE include)
-target_compile_definitions(farside-client PRIVATE FARSIDE_CLIENT_EDITION FARSIDE_VERSION="${FARSIDE_VERSION}" FARSIDE_SETUP_NAME="FarsideClient-Setup.exe")
+target_compile_definitions(farside-client PRIVATE FARSIDE_CLIENT_EDITION FARSIDE_VERSION="${FARSIDE_VERSION}" FARSIDE_SETUP_NAME="FarsideRemote-Setup.exe")
 target_link_libraries(farside-client Qt::Core Qt::Gui Qt::Qml Qt::Quick Qt::Network Qt::Svg ZXing::ZXing OpenSSL::Crypto)
 if(WIN32)
 	target_link_libraries(farside-client crypt32)
 endif()
-set_target_properties(farside-client PROPERTIES OUTPUT_NAME FarsideClient)
+set_target_properties(farside-client PROPERTIES OUTPUT_NAME FarsideRemote)
 
 install(TARGETS chiaki
 		RUNTIME DESTINATION bin

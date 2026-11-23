@@ -67,7 +67,7 @@ Item {
         FHeader {
             id: header
             width: parent.width
-            title: Farside.role === "host" ? qsTr("Farside Host") : qsTr("Farside")
+            title: qsTr("Farside")
             subtitle: qsTr("Plays your PS5 here and takes the controller of a paired PC")
         }
 
@@ -231,5 +231,7 @@ Item {
                 }
             }
         }
+
+        FChannelQuestion { }
     }
 }

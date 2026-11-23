@@ -14,6 +14,7 @@
     <file>FBack.qml</file>
     <file>FTick.qml</file>
     <file>FSlider.qml</file>
+    <file>FChannelQuestion.qml</file>
   </qresource>
   <qresource prefix="/fonts">
     <file alias="Inter-Regular.ttf">../../res/fonts/Inter-Regular.ttf</file>

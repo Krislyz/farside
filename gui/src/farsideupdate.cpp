@@ -62,6 +62,29 @@ Update pickUpdate(const QByteArray &json, const QString &current, const QString 
 	return best;
 }
 
+bool isAlphaRelease(const QByteArray &json, const QString &current)
+{
+	const QJsonDocument answer = QJsonDocument::fromJson(json);
+	const QJsonArray releases = answer.isArray() ? answer.array() : QJsonArray { answer.object() };
+	const QVersionNumber own = QVersionNumber::fromString(current);
+	for(const QJsonValue &entry : releases)
+	{
+		const QJsonObject release = entry.toObject();
+		QString tag = release.value(QStringLiteral("tag_name")).toString();
+		if(tag.startsWith(QLatin1Char('v')))
+			tag.remove(0, 1);
+		if(tag.isEmpty() || release.value(QStringLiteral("draft")).toBool() || QVersionNumber::fromString(tag) != own)
+			continue;
+		return release.value(QStringLiteral("prerelease")).toBool();
+	}
+	return false;
+}
+
+bool askChannel(bool running_alpha, const QString &channel, const QString &asked, const QString &current)
+{
+	return running_alpha && channel != QLatin1String("alpha") && asked != current;
+}
+
 int selfTestUpdate()
 {
 	const QString hex = QStringLiteral("9c73c3bae7ed48d44112a0f48e66742c00090bdb5bef71d9d3c056c66e97b732");
@@ -136,6 +159,25 @@ int selfTestUpdate()
 	if(pickUpdate(release(QStringLiteral("v0.2.0"), digest, good_url, true), QStringLiteral("0.1.0"), name, true).version != QLatin1String("0.2.0")
 		|| !pickUpdate(release(QStringLiteral("v0.2.0"), digest, good_url, true), QStringLiteral("0.1.0"), name).version.isEmpty())
 		return 63;
+
+	// 64: the release of this program's own version is marked pre-release: it is an alpha version.
+	if(!isAlphaRelease(list, QStringLiteral("0.3.0")) || !isAlphaRelease(release(QStringLiteral("v0.3.0"), digest, good_url, true), QStringLiteral("0.3.0")))
+		return 64;
+	// 65: a full release, a draft, a version that is not listed and an unreadable answer are no alpha version.
+	const QByteArray draft = QJsonDocument(QJsonArray { listed(QStringLiteral("v0.6.0"), true, true) }).toJson();
+	if(isAlphaRelease(list, QStringLiteral("0.2.0")) || isAlphaRelease(draft, QStringLiteral("0.6.0")) || isAlphaRelease(list, QStringLiteral("0.9.0"))
+		|| isAlphaRelease("not json", QStringLiteral("0.3.0")) || isAlphaRelease("{\"message\":\"Not Found\"}", QStringLiteral("0.3.0")))
+		return 65;
+	// 66: an alpha version on the stable channel was installed by hand: ask. On the alpha channel, or
+	// with a full release, there is nothing to ask.
+	if(!askChannel(true, QStringLiteral("stable"), QString(), QStringLiteral("0.3.0"))
+		|| askChannel(true, QStringLiteral("alpha"), QString(), QStringLiteral("0.3.0"))
+		|| askChannel(false, QStringLiteral("stable"), QString(), QStringLiteral("0.3.0")))
+		return 66;
+	// 67: asked once per version: not again for the version already answered, again for a later alpha.
+	if(askChannel(true, QStringLiteral("stable"), QStringLiteral("0.3.0"), QStringLiteral("0.3.0"))
+		|| !askChannel(true, QStringLiteral("stable"), QStringLiteral("0.2.9"), QStringLiteral("0.3.0")))
+		return 67;
 	return 0;
 }
 

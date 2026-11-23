@@ -46,8 +46,8 @@ Item {
         FHeader {
             id: header
             width: parent.width
-            title: qsTr("Farside Client")
-            subtitle: qsTr("Sends this PC's controller to your Farside Host")
+            title: qsTr("Farside Remote")
+            subtitle: qsTr("Sends this PC's controller to Farside on your home PC")
         }
 
         FarsideRemotePlay {
@@ -62,5 +62,7 @@ Item {
             y: parent.height - height
             width: parent.width
         }
+
+        FChannelQuestion { }
     }
 }
