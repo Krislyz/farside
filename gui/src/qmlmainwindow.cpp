@@ -6,6 +6,7 @@
 #include "chiaki/time.h"
 #include "streamsession.h"
 #include "farsidegraph.h"
+#include "farsidepcload.h"
 
 #include <qpa/qplatformnativeinterface.h>
 
@@ -111,8 +112,10 @@ private:
     qint64 locked_us = 0;
 };
 
-// Farside: the panel of the "Stream statistics" switch. A graph of the last 20 seconds and, for every line,
-// the value now and the average over those 20 seconds. Painted by hand, in the look of the app.
+// Farside: what the "Stream statistics" switch shows over the stream. Two styles (Settings, Stream HUD):
+// a slim bar of numbers at an edge of the picture (pictures per second, the PS5's and the network's
+// numbers, this PC's load), or a panel with a graph of the last 20 seconds and, for every line, the value
+// now and the average. Painted by hand, in the look of the app.
 class StatsOverlayWidget : public QWidget
 {
 public:
@@ -122,7 +125,9 @@ public:
         , backend(backend)
     {
         setObjectName(QStringLiteral("statsOverlayWidget"));
-        setWindowFlags(Qt::ToolTip | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::WindowDoesNotAcceptFocus | Qt::WindowTransparentForInput);
+        // A tool window owned by the stream window (see updateTransientParent): it stays above that window
+        // only. Not a tooltip and not "stays on top": those lie above every program on the screen.
+        setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowDoesNotAcceptFocus | Qt::WindowTransparentForInput);
         setAttribute(Qt::WA_TranslucentBackground);
         setAttribute(Qt::WA_ShowWithoutActivating);
         setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -143,6 +148,14 @@ public:
     void setOverlayVisible(bool visible)
     {
         if (visible) {
+            // Style, place and background as chosen under Settings, Stream HUD.
+            const QSettings stored;
+            bar = stored.value(QStringLiteral("farside/hudStyle"), QStringLiteral("bar")).toString() != QLatin1String("graph");
+            place = qBound(0, stored.value(QStringLiteral("farside/hudPlace"), 0).toInt(), 5);
+            opacity = qBound(10, stored.value(QStringLiteral("farside/hudOpacity"), 55).toInt(), 100);
+            // The window itself must exist before it is shown: Windows takes its owner (the stream window)
+            // at that moment, and an owned window stays above its owner and nothing else.
+            winId();
             updateTransientParent();
             syncGeometry();
             refresh();
@@ -161,12 +174,19 @@ public:
     }
 
     // The panel only, at the right edge of the stream window: ten repaints a second stay small.
+    // The bar: at the chosen corner or edge, as wide as its text.
     void syncGeometry()
     {
         if (!owner)
             return;
         const QRect o = owner->geometry();
-        const QRect g(o.right() - PanelWidth - 6, o.center().y() - PanelHeight / 2, PanelWidth, PanelHeight);
+        QRect g(o.right() - PanelWidth - 6, o.center().y() - PanelHeight / 2, PanelWidth, PanelHeight);
+        if (bar) {
+            // Places: 0 top left, 1 top centre, 2 top right, 3 bottom left, 4 bottom centre, 5 bottom right.
+            const int w = qMin(barWidth(), o.width() - 2 * BarMargin), column = place % 3;
+            const int x = column == 0 ? o.left() + BarMargin : column == 1 ? o.center().x() - w / 2 : o.right() - BarMargin - w;
+            g = QRect(x, place < 3 ? o.top() + BarMargin : o.bottom() - BarMargin - BarHeight, w, BarHeight);
+        }
         if (geometry() != g)
             setGeometry(g);
     }
@@ -186,6 +206,7 @@ public:
         current_session = session;
         graph = Farside::Graph();
         rtt_recent.clear();
+        ticks = 0;
     }
 
     // Takes the values of this moment into the graph and paints.
@@ -217,12 +238,23 @@ public:
                 graph.add(Sound, now, (float)s->GetAudioWaitingMs());
             graph.add(Bitrate, now, (float)s->GetMeasuredBitrate());
         }
-        update();
+        if (!bar)
+            return update();
+        // The bar: its numbers change twice a second (ten times would flicker), this PC's load once.
+        if (ticks % 10 == 0)
+            load.read(cpu, gpu);
+        if (ticks++ % 5 == 0) {
+            fillBar(now);
+            syncGeometry();
+            update();
+        }
     }
 
 protected:
     void paintEvent(QPaintEvent *) override
     {
+        if (bar)
+            return paintBar();
         struct Row { int line; QString name; QColor color; };
         const Row rows[] = {
             { Late, tr("PS5: picture late"), QColor(QStringLiteral("#fd4fa4")) },
@@ -342,7 +374,106 @@ protected:
     }
 
 private:
+    // One piece of the bar's text, and the room before it: none (the first piece), a value after its
+    // name, a new item of the same group, or a new group (with a thin line in the room).
+    enum Room { NoRoom, ValueRoom, ItemRoom, GroupRoom };
+    struct Piece { QString text; QColor color; bool bold; Room room; };
+
+    static QFont barFont(bool bold)
+    {
+        QFont font(QStringLiteral("Inter"));
+        font.setPixelSize(12);
+        font.setWeight(bold ? QFont::DemiBold : QFont::Normal);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+        // Digits of one width: a changing number does not push the text after it around.
+        font.setFeature(QFont::Tag("tnum"), 1);
+#endif
+        return font;
+    }
+
+    static qreal pieceWidth(const Piece &piece)
+    {
+        return QFontMetricsF(barFont(piece.bold)).horizontalAdvance(piece.text);
+    }
+
+    static int roomWidth(Room room)
+    {
+        return room == ValueRoom ? 5 : room == ItemRoom ? 12 : room == GroupRoom ? 19 : 0;
+    }
+
+    // The same sum as paintBar walks, so both ends of the bar keep BarPad.
+    int barWidth() const
+    {
+        qreal w = 2 * BarPad;
+        for (const Piece &piece : pieces)
+            w += roomWidth(piece.room) + pieceWidth(piece);
+        return qCeil(w);
+    }
+
+    // The bar's text from the numbers of this moment. Groups: pictures per second; the PS5 (how late
+    // its pictures are, its round trip); the network; this PC; the sound that waits to be played.
+    void fillBar(quint64 now)
+    {
+        const QColor ink(QStringLiteral("#f3f3f6")), muted(QStringLiteral("#a3a3b5"));
+        const QColor pink(QStringLiteral("#fd4fa4")), orange(QStringLiteral("#ff8a3d")), green(QStringLiteral("#3ddc97")), violet(QStringLiteral("#b48cff"));
+        auto with = [](float value, int decimals, const QString &unit) {
+            return value < 0 ? QStringLiteral("-") : QString::number(value, 'f', decimals) + unit;
+        };
+        StreamSession *s = current_session;
+        // Pictures per second: the pictures of the second before the last one. The console's picture
+        // clock, which the count comes from, tells of a picture about a second after it came.
+        // ponytail: no count without that clock (a PS4, an old PS5 system); count in the video receiver if that matters.
+        const int pictures = graph.count(Late, now, 10, 19);
+        const QString ms = tr(" ms"), percent = QStringLiteral(" %");
+        pieces = {
+            { tr("FPS"), pink, true, NoRoom },
+            { pictures > 0 ? QString::number(pictures) : QStringLiteral("-"), ink, true, ValueRoom },
+            { tr("PS5"), pink, true, GroupRoom },
+            { tr("late"), muted, false, ValueRoom },
+            { with(graph.now(Late, now), 1, ms), ink, true, ValueRoom },
+            { tr("ping"), muted, false, ItemRoom },
+            { with(graph.now(RoundTrip, now), 0, ms), ink, true, ValueRoom },
+            { tr("NET"), orange, true, GroupRoom },
+            { with(graph.now(Bitrate, now), 1, tr(" Mbps")), ink, true, ValueRoom },
+            { tr("loss"), muted, false, ItemRoom },
+            { s ? with((float)(s->GetAveragePacketLoss() * 100.0), 1, percent) : QStringLiteral("-"), ink, true, ValueRoom },
+            { tr("PC"), green, true, GroupRoom },
+            { tr("decode"), muted, false, ValueRoom },
+            { with(graph.now(Decode, now), 1, ms), ink, true, ValueRoom },
+            { tr("CPU"), muted, false, ItemRoom },
+            { with(cpu, 0, percent), ink, true, ValueRoom },
+            { tr("GPU"), muted, false, ItemRoom },
+            { with(gpu, 0, percent), ink, true, ValueRoom },
+            { tr("SOUND"), violet, true, GroupRoom },
+            { with(graph.now(Sound, now), 0, ms), ink, true, ValueRoom },
+        };
+    }
+
+    void paintBar()
+    {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(11, 11, 16, 255 * opacity / 100));
+        p.drawRoundedRect(QRectF(0, 0, width(), height()), 7, 7);
+        qreal x = BarPad;
+        for (const Piece &piece : pieces) {
+            const int room = roomWidth(piece.room);
+            if (piece.room == GroupRoom) {
+                p.setPen(QColor(255, 255, 255, 40));
+                p.drawLine(QPointF(x + room / 2.0, 7), QPointF(x + room / 2.0, height() - 7));
+            }
+            x += room;
+            const qreal w = pieceWidth(piece);
+            p.setFont(barFont(piece.bold));
+            p.setPen(piece.color);
+            p.drawText(QRectF(x, 0, w + 1, height()), Qt::AlignLeft | Qt::AlignVCenter, piece.text);
+            x += w;
+        }
+    }
+
     enum Line { Late, RoundTrip, Receive, Decode, Wait, Sound, Bitrate };
+    static constexpr int BarHeight = 26, BarMargin = 10, BarPad = 12;
     static constexpr int PanelWidth = 400, GraphHeight = 150, RowHeight = 21;
     // Scale labels, the graph, its time labels, the head of the list, 7 lines, 3 facts, the edges.
     static constexpr int PanelHeight = 26 + GraphHeight + 22 + RowHeight * (1 + 7 + 3) + 4 + 12;
@@ -369,6 +500,12 @@ private:
     QTimer timer;
     Farside::Graph graph;
     QQueue<double> rtt_recent;
+    // The slim bar (bar == true) and what it shows.
+    bool bar = true;
+    int place = 0, opacity = 55, ticks = 0;
+    QVector<Piece> pieces;
+    Farside::PcLoad load;
+    float cpu = -1, gpu = -1;
 };
 
 class DeferredPresentPacerThread final : public QThread
@@ -5269,6 +5406,9 @@ renderer_backend_ready:
 
     backend = new QmlBackend(settings, this);
     stats_overlay_widget = new StatsOverlayWidget(this, backend);
+    // For a look at the bar without a stream: a sandboxed test run shows it when asked to.
+    if (qEnvironmentVariableIsSet("FARSIDE_SANDBOX") && qEnvironmentVariableIsSet("FARSIDE_SHOW_HUD"))
+        QTimer::singleShot(3000, this, [this] { if (stats_overlay_widget) stats_overlay_widget->setOverlayVisible(true); });
     connect(backend, &QmlBackend::sessionChanged, this, [this, exit_app_on_stream_exit](StreamSession *s) {
         const bool preserve_startup_warmup = s && startup_warmup_preserve_next_session_change;
         startup_warmup_preserve_next_session_change = false;

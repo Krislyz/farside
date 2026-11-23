@@ -25,6 +25,9 @@ Item {
         placeboFrameMixer: { get: () => Chiaki.settings.placeboFrameMixer, set: (v) => Chiaki.settings.placeboFrameMixer = v },
         placeboDebandEnabled: { get: () => Chiaki.settings.placeboDebandEnabled, set: (v) => Chiaki.settings.placeboDebandEnabled = v },
         hudResponse: { get: () => shell.options.hudResponse, set: (v) => shell.options.hudResponse = v },
+        hudStyle: { get: () => shell.options.hudStyle, set: (v) => shell.options.hudStyle = v },
+        hudPlace: { get: () => shell.options.hudPlace, set: (v) => shell.options.hudPlace = v },
+        hudOpacity: { get: () => shell.options.hudOpacity, set: (v) => shell.options.hudOpacity = v },
         showStreamStats: { get: () => Chiaki.settings.showStreamStats, set: (v) => Chiaki.settings.showStreamStats = v },
         logVerbose: { get: () => Chiaki.settings.logVerbose, set: (v) => Chiaki.settings.logVerbose = v }
     })
@@ -100,7 +103,7 @@ Item {
         }
 
         implicitWidth: 380
-        currentIndex: place()
+        currentIndex: pick.place()
         onActivated: (index) => {
             page.change(key, values ? values[index] : index);
             currentIndex = Qt.binding(() => pick.place());
@@ -276,7 +279,35 @@ Item {
                 }
                 Tick {
                     key: "showStreamStats"
-                    text: qsTr("Stream statistics: graph of delays in ms (now and average), bitrate, packet loss")
+                    text: qsTr("Stream statistics: pictures per second, delays in ms, bitrate, this PC's load")
+                }
+                GridLayout {
+                    columns: 2
+                    columnSpacing: 16
+                    rowSpacing: 12
+
+                    FText { text: qsTr("Shown as") }
+                    Pick {
+                        key: "hudStyle"
+                        values: ["bar", "graph"]
+                        model: [qsTr("Slim bar"), qsTr("Panel with a graph")]
+                    }
+
+                    FText { text: qsTr("Bar sits"); visible: barPlace.visible }
+                    Pick {
+                        id: barPlace
+                        key: "hudPlace"
+                        visible: page.value("hudStyle") === "bar"
+                        model: [qsTr("Top left"), qsTr("Top centre"), qsTr("Top right"), qsTr("Bottom left"), qsTr("Bottom centre"), qsTr("Bottom right")]
+                    }
+
+                    FText { text: qsTr("Bar background"); visible: barPlace.visible }
+                    Pick {
+                        key: "hudOpacity"
+                        visible: barPlace.visible
+                        values: [25, 40, 55, 70, 85]
+                        model: [qsTr("Very light"), qsTr("Light"), qsTr("Medium"), qsTr("Dark"), qsTr("Very dark")]
+                    }
                 }
                 Tick {
                     key: "logVerbose"

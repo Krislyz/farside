@@ -61,6 +61,17 @@ class Graph
 			return count ? (float)(sum / count) : -1;
 		}
 
+		// How many values the buckets from `from_age` to `to_age` old hold together (both counted in).
+		// For pictures per second: one value per picture, counted over ten buckets.
+		int count(int line, uint64_t now_us, int from_age, int to_age) const
+		{
+			int total = 0;
+			for(int age = from_age; age <= to_age; age++)
+				if(const Cell *cell = at(line, now_us, age))
+					total += cell->count;
+			return total;
+		}
+
 	private:
 		struct Cell;
 		// The cell of the bucket `age` buckets before now_us, if it holds values of that very bucket.
@@ -82,7 +93,7 @@ class Graph
 		Cell cells[Lines][Buckets];
 };
 
-// 0 = pass, otherwise the number of the first failing check (80 to 84).
+// 0 = pass, otherwise the number of the first failing check (80 to 85).
 inline int selfTestGraph()
 {
 	const uint64_t t = 374525487409ull; // any moment
@@ -117,6 +128,20 @@ inline int selfTestGraph()
 		g.add(0, t + Graph::Buckets * Graph::BucketUs, 1);
 		if(!same(g.average(0, t + Graph::Buckets * Graph::BucketUs), 1))
 			return 84;
+	}
+	{
+		// 85: values are counted per span of buckets: 60 pictures in the second before the last one, 30 in
+		// the last one. A span with nothing in it counts 0, and so does another line.
+		Graph g;
+		// `now` is the start of a bucket, so that each second fills ten whole buckets.
+		const uint64_t now = (t / Graph::BucketUs + 50) * Graph::BucketUs;
+		for(int i = 0; i < 60; i++)
+			g.add(0, now - 2 * second + i * (second / 60) + 1000, 1);
+		for(int i = 0; i < 30; i++)
+			g.add(0, now - second + i * (second / 30) + 1000, 1);
+		const uint64_t at = now - 1; // in the bucket that ends at `now`
+		if(g.count(0, at, 10, 19) != 60 || g.count(0, at, 0, 9) != 30 || g.count(0, at, 20, 29) != 0 || g.count(1, at, 0, 19) != 0)
+			return 85;
 	}
 	return 0;
 }

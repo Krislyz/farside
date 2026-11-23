@@ -574,8 +574,10 @@ void FarsideBackend::installUpdate()
 		return;
 	}
 	// Setup waits until this program has ended, installs, and starts the program again (see farside/installer).
-	const QString file = QDir::toNativeSeparators(update_file);
-	if(reinterpret_cast<INT_PTR>(ShellExecuteW(nullptr, L"open", reinterpret_cast<LPCWSTR>(file.utf16()), L"/SILENT", nullptr, SW_SHOWNORMAL)) > 32)
+	// Started in the temporary folder, not in this program's own: Setup could not rename or remove a
+	// folder it stands in.
+	const QString file = QDir::toNativeSeparators(update_file), start_in = QDir::toNativeSeparators(QDir::tempPath());
+	if(reinterpret_cast<INT_PTR>(ShellExecuteW(nullptr, L"open", reinterpret_cast<LPCWSTR>(file.utf16()), L"/SILENT", reinterpret_cast<LPCWSTR>(start_in.utf16()), SW_SHOWNORMAL)) > 32)
 		QCoreApplication::quit();
 #endif
 }

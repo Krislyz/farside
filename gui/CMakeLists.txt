@@ -178,7 +178,7 @@ set_target_properties(chiaki PROPERTIES OUTPUT_NAME Farside)
 # Names: the program at home is "Farside" (the code calls it the host), the one on the PC played from
 # is "Farside Remote" (the code and the file names call it the client). Until 0.1.5.2 they were
 # "Farside Host" and "Farside Client"; farside/package.sh still adds their Setup names for those versions.
-set(FARSIDE_VERSION 0.1.5.3 CACHE STRING "Version of Farside and Farside Remote")
+set(FARSIDE_VERSION 0.1.6 CACHE STRING "Version of Farside and Farside Remote")
 target_compile_definitions(chiaki PRIVATE FARSIDE_VERSION="${FARSIDE_VERSION}" FARSIDE_SETUP_NAME="Farside-Setup.exe")
 
 # Farside Remote: the program for the PCs played from. It pairs with a Farside and shares this PC's
@@ -216,6 +216,8 @@ target_compile_definitions(farside-client PRIVATE FARSIDE_CLIENT_EDITION FARSIDE
 target_link_libraries(farside-client Qt::Core Qt::Gui Qt::Qml Qt::Quick Qt::Network Qt::Svg ZXing::ZXing OpenSSL::Crypto)
 if(WIN32)
 	target_link_libraries(farside-client crypt32)
+	# The graphics card's load for the bar in the stream (farsidepcload.h).
+	target_link_libraries(chiaki pdh)
 endif()
 set_target_properties(farside-client PROPERTIES OUTPUT_NAME FarsideRemote)
 

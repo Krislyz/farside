@@ -49,6 +49,11 @@ Item {
         property bool debugMs: false
         property bool hudResponse: false
         property real textSize: 0.9
+        // The numbers over the stream: "bar" or "graph", where the bar sits (0 to 5, see qmlmainwindow.cpp)
+        // and how dark its background is, in percent.
+        property string hudStyle: "bar"
+        property int hudPlace: 0
+        property int hudOpacity: 55
     }
 
     Rectangle {
