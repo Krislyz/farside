@@ -22,6 +22,7 @@ int main(int argc, char *argv[]) { return real_main(argc, argv); }
 #include <farsidesession.h>
 #include <farsideqr.h>
 #include <farsideupdate.h>
+#include <farsideaudio.h>
 #include <cstring>
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -90,6 +91,8 @@ int real_main(int argc, char *argv[])
 			// 50 to 57: which release is an update.
 			if(const int update = Farside::selfTestUpdate())
 				return update;
+			if(const int audio = Farside::selfTestAudio()) // 70 to 74: how much late sound is kept.
+				return audio;
 			return Farside::selfTestQr();
 		}
 	qRegisterMetaType<DiscoveryHost>();
