@@ -177,8 +177,8 @@ set_target_properties(chiaki PROPERTIES OUTPUT_NAME Farside)
 # (A test of the updater builds an older number: -DFARSIDE_VERSION=0.0.1.)
 # Names: the program at home is "Farside" (the code calls it the host), the one on the PC played from
 # is "Farside Remote" (the code and the file names call it the client). Until 0.1.5.2 they were
-# "Farside Host" and "Farside Client"; farside/package.sh still adds their Setup names for those versions.
-set(FARSIDE_VERSION 0.1.6 CACHE STRING "Version of Farside and Farside Remote")
+# "Farside Host" and "Farside Client"; release 0.1.5.3 carries their Setup names for those versions.
+set(FARSIDE_VERSION 0.1.6.1 CACHE STRING "Version of Farside and Farside Remote")
 target_compile_definitions(chiaki PRIVATE FARSIDE_VERSION="${FARSIDE_VERSION}" FARSIDE_SETUP_NAME="Farside-Setup.exe")
 
 # Farside Remote: the program for the PCs played from. It pairs with a Farside and shares this PC's

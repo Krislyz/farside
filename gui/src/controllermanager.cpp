@@ -128,7 +128,9 @@ static QSet<QPair<uint16_t, uint16_t>> chiaki_steam_virtual_controller_ids({
 
 static ControllerManager *instance = nullptr;
 
-#define UPDATE_INTERVAL_MS 4
+// Farside: 1 ms, not 4. A press waits for the next look at the controller; a DualSense on a cable
+// tells of its state every 4 ms by itself, so this takes about 1.5 ms off on average.
+#define UPDATE_INTERVAL_MS 1
 #define MOVE_CHECK_MS 1000
 
 ControllerManager *ControllerManager::GetInstance()
@@ -154,6 +156,7 @@ ControllerManager::ControllerManager(QObject *parent)
 		return;
 
 	auto timer = new QTimer(this);
+	timer->setTimerType(Qt::PreciseTimer);
 	connect(timer, &QTimer::timeout, this, &ControllerManager::HandleEvents);
 	timer->start(UPDATE_INTERVAL_MS);
 	auto move_timer = new QTimer(this);

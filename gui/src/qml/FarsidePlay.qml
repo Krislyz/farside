@@ -3,6 +3,7 @@
 // the same actions, the same keys and controller buttons, the same questions on first start.
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Templates as T
 
 import org.streetpea.chiaking
 
@@ -12,6 +13,10 @@ Item {
     // Row of Chiaki.hosts that the keys and controller buttons act on.
     property int current: 0
 
+    // A PSN sign-in is stored. Without one the bar at the bottom offers the sign-in, so "no" to the
+    // question on first start is not the end of it.
+    readonly property bool psn: !!(Chiaki.settings.psnRefreshToken && Chiaki.settings.psnAuthToken && Chiaki.settings.psnAuthTokenExpiry && Chiaki.settings.psnAccountId)
+
     // Called by FarsideShell when this page comes to the front.
     function activated() {
         forceActiveFocus(Qt.TabFocusReason);
@@ -19,7 +24,7 @@ Item {
             root.initialAsk = true;
             // chiaki-ng also asks here about a Steam shortcut; Farside leaves that to F1.
             if (Chiaki.settings.remotePlayAsk) {
-                if (!Chiaki.settings.psnRefreshToken || !Chiaki.settings.psnAuthToken || !Chiaki.settings.psnAuthTokenExpiry || !Chiaki.settings.psnAccountId)
+                if (!play.psn)
                     root.showRemindDialog(qsTr("Remote Play via PSN"), qsTr("Would you like to connect to PSN?\nThis enables:\n- Automatic registration\n- Playing outside of your home network without port forwarding?") + "\n\n" + qsTr("(Note: If you select no now and want to do this later, go to the Config section of the settings.)"), true, () => root.showPSNTokenDialog(false));
                 else
                     Chiaki.settings.remotePlayAsk = false;
@@ -132,11 +137,36 @@ Item {
         }
     }
 
-    ColumnLayout {
+    // The cards scroll when the window is too low for them; the bar under them stays where it is.
+    Flickable {
+        id: scroller
         x: 28
         y: 28
-        width: Math.min(parent.width - 56, 980)
-        height: parent.height - 52
+        width: parent.width - 56
+        height: bar.y - 16 - y
+        contentHeight: cards.implicitHeight
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+
+        T.ScrollBar.vertical: T.ScrollBar {
+            id: scrollBar
+            implicitWidth: 12
+            padding: 3
+            policy: scroller.contentHeight > scroller.height ? T.ScrollBar.AlwaysOn : T.ScrollBar.AlwaysOff
+            // The bare template shows its bar whatever the policy says.
+            visible: scroller.contentHeight > scroller.height
+
+            contentItem: Rectangle {
+                implicitWidth: 6
+                radius: 3
+                color: scrollBar.pressed ? "#d4267e" : scrollBar.hovered ? "#5d5d70" : "#3a3a50"
+            }
+        }
+
+    ColumnLayout {
+        id: cards
+        // Room for the scroll bar when it shows, so it does not lie on the cards.
+        width: Math.min(parent.width - (scrollBar.visible ? 14 : 0), 980)
         spacing: 16
 
         FText {
@@ -463,7 +493,17 @@ Item {
             wrapMode: Text.WordWrap
         }
 
-        Item { Layout.fillHeight: true }
+    }
+    }
+
+    // The bar at the bottom runs the whole width of the page, like the footer under it; the cards
+    // above keep their reading width.
+    ColumnLayout {
+        id: bar
+        x: 28
+        y: parent.height - 24 - height
+        width: parent.width - 56
+        spacing: 16
 
         Rectangle {
             Layout.fillWidth: true
@@ -490,10 +530,9 @@ Item {
                 elide: Text.ElideLeft
             }
             FButton {
-                text: qsTr("Refresh PSN")
-                visible: !!Chiaki.settings.psnAuthToken
+                text: play.psn ? qsTr("Refresh PSN") : qsTr("Connect PSN")
                 focusPolicy: Qt.NoFocus
-                onClicked: Chiaki.refreshPsnToken()
+                onClicked: play.psn ? Chiaki.refreshPsnToken() : root.showPSNTokenDialog(false)
             }
             FButton {
                 text: qsTr("Add console")

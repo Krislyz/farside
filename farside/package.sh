@@ -4,8 +4,9 @@
 # Run in the MSYS2 MINGW64 shell, from the source folder, after both programs are built:
 #   cmake --build build --target chiaki farside-client
 #   farside/package.sh <path to dumbpipe.exe> [<path to Inno Setup's ISCC.exe>]
-# Result: build/farside/out/Farside-Setup.exe and FarsideRemote-Setup.exe, and a copy of each under the
-# name it had until 0.1.5.2 (see the end of this file).
+# Result: build/farside/out/Farside-Setup.exe and FarsideRemote-Setup.exe.
+# (Versions up to 0.1.5.2 ask a release for FarsideHost-Setup.exe / FarsideClient-Setup.exe. Release
+# 0.1.5.3 carries those names and stays as the step between: such a version updates to 0.1.5.3 first.)
 set -euo pipefail
 
 dumbpipe="$1"
@@ -35,8 +36,4 @@ for edition in host client; do
     MSYS2_ARG_CONV_EXCL='*' "$iscc" /Qp "/DVersion=$version" "/DSource=$(cygpath -w "$(pwd)/$out/$edition")" \
         "/O$(cygpath -w "$(pwd)/$out/out")" "$(cygpath -w "$(pwd)/farside/installer/$edition.iss")"
 done
-# Versions up to 0.1.5.2 (Farside Host, Farside Client) ask a release for these two names. A release
-# that carries them is one those versions can update to; from there on the new names are asked for.
-cp "$out/out/Farside-Setup.exe" "$out/out/FarsideHost-Setup.exe"
-cp "$out/out/FarsideRemote-Setup.exe" "$out/out/FarsideClient-Setup.exe"
 ls -l "$out/out"

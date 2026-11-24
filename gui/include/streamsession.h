@@ -36,6 +36,7 @@
 #include <QImage>
 #include <QMouseEvent>
 #include <QMutex>
+#include <farsideaudio.h>
 #include <QTimer>
 #include <QQueue>
 #include <QElapsedTimer>
@@ -262,6 +263,7 @@ class StreamSession : public QObject
 		size_t audio_out_ring_fill = 0;
 		bool audio_out_overflow_logged = false;
 		// Farside: how evenly sound arrives, summed up in the log every 30 seconds (see PushAudioFrame).
+		Farside::AudioPace audio_pace; // plays sound a hair faster or slower, see farsideaudio.h
 		uint64_t audio_timing_last_us = 0;
 		unsigned int audio_timing_frames = 0, audio_timing_late = 0, audio_timing_longest_ms = 0;
 		unsigned int audio_timing_empty = 0, audio_timing_queue_max_ms = 0, audio_timing_dropped_ms = 0;

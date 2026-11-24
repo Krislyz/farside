@@ -1404,7 +1404,11 @@ void StreamSession::InitAudio(unsigned int channels, unsigned int rate)
 	spec.channels = channels;
 	spec.format = AUDIO_S16SYS;
 	audio_out_sample_size = sizeof(int16_t) * channels;
-	spec.samples = audio_buffer_size / audio_out_sample_size;
+	// Farside: the player takes sound in goes of 10 ms, one frame, not of the whole buffer size
+	// (50 ms): what it takes in one go must already wait, so big goes mean sound that plays late.
+	// The buffer size stays what may pile up behind the player before old sound is left out.
+	spec.samples = rate / 100;
+	audio_pace = Farside::AudioPace();
 
 	SDL_AudioSpec obtained;
 	audio_out = SDL_OpenAudioDevice(audio_out_device_name.isEmpty() ? nullptr : qUtf8Printable(audio_out_device_name), false, &spec, &obtained, false);
@@ -1441,8 +1445,8 @@ void StreamSession::InitAudio(unsigned int channels, unsigned int rate)
 	SDL_PauseAudioDevice(audio_out, 0);
 	StartAudioOutDrainThread();
 
-	CHIAKI_LOGI(log.GetChiakiLog(), "Audio Device '%s' opened with %u channels @ %d Hz, buffer size %u",
-				qPrintable(audio_out_device_name), obtained.channels, obtained.freq, obtained.size);
+	CHIAKI_LOGI(log.GetChiakiLog(), "Audio Device '%s' opened with %u channels @ %d Hz, buffer size %u (%u samples in one go)",
+				qPrintable(audio_out_device_name), obtained.channels, obtained.freq, obtained.size, obtained.samples);
 }
 
 void StreamSession::InitMic(unsigned int channels, unsigned int rate)
@@ -1965,6 +1969,7 @@ void StreamSession::PushAudioFrame(int16_t *og_buf, size_t samples_count)
 		return;
 
 	QByteArray buf((int)(samples_count * audio_out_sample_size), 0);
+	int pace_leave = 0; // samples to leave out of this frame (negative: to add), from audio_pace
 
 	// Farside: sound comes as one frame every 10 ms. Over the internet frames can come late and in
 	// bunches; the player then has nothing to play for a moment, which nothing else records. Every 30
@@ -1978,6 +1983,7 @@ void StreamSession::PushAudioFrame(int16_t *og_buf, size_t samples_count)
 		}
 		const unsigned int waiting_ms = (unsigned int)(((uint64_t)SDL_GetQueuedAudioSize(audio_out) + ring_waiting) * 1000 / (audio_out_sample_size * 48000));
 		audio_waiting_ms.storeRelaxed((int)waiting_ms);
+		pace_leave = audio_pace.frame(waiting_ms, audio_timing_last_us ? (unsigned int)((now_us - audio_timing_last_us) / 1000) : 0);
 		if(audio_timing_last_us)
 		{
 			const unsigned int since_ms = (unsigned int)((now_us - audio_timing_last_us) / 1000);
@@ -1993,8 +1999,11 @@ void StreamSession::PushAudioFrame(int16_t *og_buf, size_t samples_count)
 		if(++audio_timing_frames >= 3000)
 		{
 			if(audio_timing_late || audio_timing_empty || audio_timing_dropped_ms)
-				CHIAKI_LOGW(log.GetChiakiLog(), "Audio timing: %u of the last %u frames came more than 30 ms after the one before (longest wait %u ms); the player had run out %u times; most sound waiting %u ms; %u ms of late sound left out",
-					audio_timing_late, audio_timing_frames, audio_timing_longest_ms, audio_timing_empty, audio_timing_queue_max_ms, audio_timing_dropped_ms);
+				CHIAKI_LOGW(log.GetChiakiLog(), "Audio timing: %u of the last %u frames came more than 30 ms after the one before (longest wait %u ms); the player had run out %u times; most sound waiting %u ms; %u ms of late sound left out; least in the last second %u ms; sound is kept near %u ms",
+					audio_timing_late, audio_timing_frames, audio_timing_longest_ms, audio_timing_empty, audio_timing_queue_max_ms, audio_timing_dropped_ms, audio_pace.floorMs(), audio_pace.needMs());
+			else
+				CHIAKI_LOGI(log.GetChiakiLog(), "Audio timing: even for %u frames; most sound waiting %u ms, least in the last second %u ms; sound is kept near %u ms",
+					audio_timing_frames, audio_timing_queue_max_ms, audio_pace.floorMs(), audio_pace.needMs());
 			audio_timing_frames = audio_timing_late = audio_timing_longest_ms = audio_timing_empty = audio_timing_queue_max_ms = audio_timing_dropped_ms = 0;
 		}
 	}
@@ -2043,6 +2052,15 @@ void StreamSession::PushAudioFrame(int16_t *og_buf, size_t samples_count)
 	}
 #endif
 queue_audio:
+	if(pace_leave != 0 && (int)samples_count > pace_leave + 1)
+	{
+		const size_t out_count = samples_count - pace_leave;
+		QByteArray paced((int)(out_count * audio_out_sample_size), 0);
+		Farside::audioResample(reinterpret_cast<const int16_t *>(buf.constData()), samples_count,
+			reinterpret_cast<int16_t *>(paced.data()), out_count, audio_out_sample_size / sizeof(int16_t));
+		QueueAudioOutData(paced);
+		return;
+	}
 	QueueAudioOutData(buf);
 }
 
@@ -2085,7 +2103,7 @@ void StreamSession::QueueAudioOutData(const QByteArray &audio_data)
 
 		// Farside: sound that came late in one bunch (after a stall) is not played behind the picture
 		// for the rest of the stream: the oldest of it is left out. See farsideaudio.h.
-		const size_t keep = Farside::audioRingKeep(SDL_GetQueuedAudioSize(audio_out), audio_out_ring_fill, audio_buffer_size, audio_out_sample_size);
+		const size_t keep = Farside::audioRingKeep(SDL_GetQueuedAudioSize(audio_out), audio_out_ring_fill, Farside::audioUsual(audio_pace.needMs(), audio_out_sample_size), audio_out_sample_size);
 		if(keep < audio_out_ring_fill)
 		{
 			audio_timing_dropped_ms += (unsigned int)((audio_out_ring_fill - keep) / (audio_out_sample_size * 48));
